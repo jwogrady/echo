@@ -1,0 +1,22 @@
+# Cosmic build CI: validate every push and PR with the stack's own tools.
+# Placed by `spark preferences --apply` when stack.default resolves to
+# python-uv; adjust the gates as the project earns them.
+name: validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      # Exit code 5 is "no tests collected" — a fresh scaffold is allowed to
+      # have no tests yet; anything else is a real failure.
+      - run: uv run pytest || [ $? -eq 5 ]

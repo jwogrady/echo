@@ -1,0 +1,23 @@
+# Release Please maintains a release PR from the conventional commits on the
+# trunk; merging that PR — a human decision — produces the version bump, the
+# CHANGELOG entry, the tag, and the GitHub Release. Nothing else cuts releases.
+name: release-please
+
+on:
+  push:
+    # Both trunk names listed so the template works regardless of which the
+    # repo uses; only the branch that exists ever triggers.
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
