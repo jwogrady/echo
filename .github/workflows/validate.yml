@@ -1,0 +1,94 @@
+# Echo CI: validate every push and PR with each language's own tools.
+#
+# Echo is a two-language repository (ADR-0001): Go owns the CLI at the repo
+# root, Python owns the GPU worker under worker/. Each job is guarded on its
+# manifest existing so the pipeline is green before Milestone 1 lands code and
+# meaningful the moment it does. No GPU is required.
+#
+# Milestone 1 / Issue 5 owns hardening these gates.
+name: validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Go module
+        id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod yet — skipping Go gates." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.detect.outputs.present == 'true'
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        if: steps.detect.outputs.present == 'true'
+        run: go vet ./...
+
+      - name: go test
+        if: steps.detect.outputs.present == 'true'
+        run: go test ./...
+
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect worker project
+        id: detect
+        working-directory: .
+        run: |
+          if [ -f worker/pyproject.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No worker/pyproject.toml yet — skipping Python gates." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.detect.outputs.present == 'true'
+
+      - name: uv sync
+        if: steps.detect.outputs.present == 'true'
+        run: uv sync
+
+      - name: ruff check
+        if: steps.detect.outputs.present == 'true'
+        run: uv run ruff check .
+
+      - name: ruff format
+        if: steps.detect.outputs.present == 'true'
+        run: uv run ruff format --check .
+
+      # Exit code 5 is "no tests collected" — a fresh scaffold is allowed to
+      # have no tests yet; anything else is a real failure.
+      - name: pytest
+        if: steps.detect.outputs.present == 'true'
+        run: uv run pytest || [ $? -eq 5 ]
