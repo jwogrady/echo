@@ -18,7 +18,7 @@ This kit is the authoritative, Spark-optimized build plan for Echo CLI v0.1: a l
 
 ## Start Here
 
-1. Place this kit under `docs/planning/cli-v2.1-spark/`.
+1. Place this kit under `docs/plan/`.
 2. Run `/spark:onboard` once, then `spark doctor`.
 3. Commit the planning kit.
 4. Read `SPARK-WORKFLOW.md`.

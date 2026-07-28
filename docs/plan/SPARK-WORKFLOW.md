@@ -4,7 +4,7 @@ This file is the execution contract for the prompt kit. The project overview and
 
 ## Initial Setup
 
-1. Copy this kit to `docs/planning/cli-v2.1-spark/`.
+1. Copy this kit to `docs/plan/`.
 2. Run `/spark:onboard` once.
 3. Confirm `spark doctor` is healthy.
 4. Commit the planning documents before implementation begins.
