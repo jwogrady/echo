@@ -77,3 +77,127 @@ echo status
 ```
 
 preserves a checksum-verified source, creates a validated optimized WAV, persists metadata, and never changes the source file.
+
+## Spark Planning Instructions
+
+Use `/spark:plan` to convert this milestone into the issue contracts below. Create one GitHub issue per contract unless repository evidence proves a smaller split is necessary. Do not combine issues merely to reduce issue count.
+
+For every issue:
+
+- Keep one observable capability per issue.
+- Use one focused branch and one pull request.
+- Copy the acceptance criteria into the GitHub issue as checkboxes.
+- Add implementation notes only when they are evidence-backed and necessary.
+- Do not pull work forward from later milestones.
+- Do not perform unrelated cleanup, renaming, or dependency upgrades.
+- Update documentation only when behavior or a contract changed.
+
+## Preconditions
+
+- Milestone 2 is merged.
+- A conversation can be created and selected.
+- FFmpeg and ffprobe are available or diagnosed by `echo doctor`.
+
+## Spark Issue Contracts
+
+### Issue 1: Validate WAV inputs
+
+**Acceptance criteria**
+
+- [ ] Nonexistent and non-WAV inputs are rejected before mutation.
+- [ ] The container and codec are inspected rather than trusting extensions.
+- [ ] Validation failures return stable error codes.
+- [ ] Valid, malformed, and mislabeled fixtures are tested.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 2: Import and preserve source audio
+
+**Acceptance criteria**
+
+- [ ] The source WAV is copied without modification.
+- [ ] SHA-256 and source metadata are recorded.
+- [ ] Filename collisions follow an explicit policy.
+- [ ] Failed imports leave no committed partial state.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 3: Inspect audio metadata with ffprobe
+
+**Acceptance criteria**
+
+- [ ] Duration, channels, sample rate, codec, and format are captured.
+- [ ] ffprobe output parsing is strict and tested.
+- [ ] Malformed tool output is reported as a structured error.
+- [ ] Metadata writes are atomic.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 4: Create optimized derivative with FFmpeg
+
+**Acceptance criteria**
+
+- [ ] A mono 16 kHz PCM WAV derivative is produced.
+- [ ] The original remains byte-identical.
+- [ ] FFmpeg arguments are safely constructed.
+- [ ] Conversation state advances only after validated output exists.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 5: Guarantee idempotency and cleanup
+
+**Acceptance criteria**
+
+- [ ] Repeated add operations do not corrupt data.
+- [ ] Temporary files are removed after failure.
+- [ ] Explicit overwrite/replacement behavior is documented.
+- [ ] Failure-path integration tests pass.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+## Required Validation
+
+Run and record the relevant results:
+
+```text
+go test ./...
+go vet ./...
+echo new "Audio Test"
+echo add .\fixtures\speech.wav
+echo status
+```
+
+## Ship Gate
+
+Do not run `/spark:ship` until:
+
+- Every acceptance criterion for the current issue is satisfied.
+- Required automated checks pass.
+- The diff contains no work from a later milestone.
+- User-facing behavior and documentation agree.
+- Generated files, secrets, recordings, transcripts, models, and local environments are excluded.
+- The pull request links the GitHub issue and states how the behavior was verified.
+
+## Stop Rule
+
+After shipping the current issue, stop. Resume with the next approved GitHub issue through `/spark:codify`; do not continue implementing from the milestone prompt on the same branch.

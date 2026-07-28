@@ -1,4 +1,4 @@
-# Echo CLI v2 — Build Sequence
+# Echo CLI v2.1 Spark Edition — Build Sequence
 
 Each milestone is independently shippable and should be converted into small GitHub issues. The milestone prompt defines scope; issues define implementation units.
 
@@ -88,3 +88,8 @@ Suggested issues:
 ## Stop Condition
 
 After Milestone 7, stop. Do not add an API, GUI, recorder, Supabase, or SaaS concerns to this repository phase. Collect real usage feedback before planning the next product surface.
+
+
+## Spark Execution Rule
+
+The suggested issues above are no longer loose suggestions. Each milestone file contains the canonical issue contracts and checkbox acceptance criteria. Use `/spark:plan` to create those issues, then ship them one at a time. A milestone is complete only after all issue PRs are merged and its definition of done passes on the default branch.

@@ -82,3 +82,127 @@ uv run pytest
 ```
 
 The output is clear enough that a Windows user knows exactly what prerequisite is missing and how Echo resolved its data and worker paths.
+
+## Spark Planning Instructions
+
+Use `/spark:plan` to convert this milestone into the issue contracts below. Create one GitHub issue per contract unless repository evidence proves a smaller split is necessary. Do not combine issues merely to reduce issue count.
+
+For every issue:
+
+- Keep one observable capability per issue.
+- Use one focused branch and one pull request.
+- Copy the acceptance criteria into the GitHub issue as checkboxes.
+- Add implementation notes only when they are evidence-backed and necessary.
+- Do not pull work forward from later milestones.
+- Do not perform unrelated cleanup, renaming, or dependency upgrades.
+- Update documentation only when behavior or a contract changed.
+
+## Preconditions
+
+- Repository exists and is checked out on a clean default branch.
+- Go and uv are installed or their absence can be diagnosed.
+- No prior Echo implementation must be preserved unless explicitly documented.
+
+## Spark Issue Contracts
+
+### Issue 1: Initialize Go CLI and command tree
+
+**Acceptance criteria**
+
+- [ ] A Go module and `cmd/echo` entrypoint exist.
+- [ ] `echo version` returns version information and exits zero.
+- [ ] Unimplemented commands fail with a consistent, user-facing message.
+- [ ] `go test ./...` passes.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 2: Implement configuration and Windows path resolution
+
+**Acceptance criteria**
+
+- [ ] Echo resolves a deterministic Windows data directory.
+- [ ] A data-root override is supported for tests and automation.
+- [ ] No user-specific path is hardcoded.
+- [ ] Path behavior has unit tests.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 3: Implement environment diagnostics
+
+**Acceptance criteria**
+
+- [ ] `echo doctor` reports required and optional dependencies separately.
+- [ ] FFmpeg, ffprobe, uv, Python, NVIDIA tooling, and worker location are checked.
+- [ ] Diagnostics include actionable remediation.
+- [ ] Strict mode returns nonzero when required conditions fail.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 4: Scaffold Python worker and contract fixtures
+
+**Acceptance criteria**
+
+- [ ] `worker/` is a valid uv project.
+- [ ] `echo-worker version` works without Whisper dependencies.
+- [ ] Versioned contract fixtures exist for later integration tests.
+- [ ] `uv run pytest` passes.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 5: Add CI and developer documentation
+
+**Acceptance criteria**
+
+- [ ] CI runs Go tests and vet plus Python tests without a GPU.
+- [ ] README documents local setup and validation commands.
+- [ ] Generated files and local data are ignored.
+- [ ] No product features beyond this milestone are added.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+## Required Validation
+
+Run and record the relevant results:
+
+```text
+go test ./...
+go vet ./...
+go run ./cmd/echo version
+go run ./cmd/echo doctor
+cd worker && uv sync && uv run pytest
+```
+
+## Ship Gate
+
+Do not run `/spark:ship` until:
+
+- Every acceptance criterion for the current issue is satisfied.
+- Required automated checks pass.
+- The diff contains no work from a later milestone.
+- User-facing behavior and documentation agree.
+- Generated files, secrets, recordings, transcripts, models, and local environments are excluded.
+- The pull request links the GitHub issue and states how the behavior was verified.
+
+## Stop Rule
+
+After shipping the current issue, stop. Resume with the next approved GitHub issue through `/spark:codify`; do not continue implementing from the milestone prompt on the same branch.

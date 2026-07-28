@@ -1,27 +1,28 @@
-# Echo CLI Prompt Kit v2
+# Echo CLI Prompt Kit v2.1 — Spark Edition
 
-This kit contains the authoritative build plan for the first shippable version of Echo: a local Windows command-line tool that converts WAV recordings into structured, timestamped transcripts using a local NVIDIA GPU.
+This kit is the authoritative, Spark-optimized build plan for Echo CLI v0.1: a local Windows command-line tool that converts WAV recordings into structured, timestamped transcripts using a local NVIDIA GPU.
 
 ## Architecture
 
-- Go owns the CLI, conversation model, filesystem orchestration, FFmpeg execution, configuration, progress, and exports.
-- Python owns GPU inference through `faster-whisper`, CUDA, and cuDNN.
-- The two components communicate through a versioned subprocess contract using JSON on disk and JSON status events on standard output.
+- Go owns CLI orchestration, conversations, files, FFmpeg, configuration, progress, jobs, and exports.
+- Python owns GPU transcription through `faster-whisper`, CUDA, and cuDNN.
+- Go and Python communicate through a versioned subprocess contract: NDJSON events on stdout, diagnostics on stderr, and canonical JSON artifacts on disk.
 
 ## Contents
 
-- `project-overview.md` — product scope, architecture, domain model, and definition of done.
-- `build-sequence.md` — recommended order and issue boundaries.
-- `decisions/ADR-0001-go-cli-python-worker.md` — architectural decision record.
-- `milestones/` — one standalone implementation prompt per milestone.
+- `project-overview.md` — product scope and definition of done.
+- `build-sequence.md` — milestone order and issue map.
+- `SPARK-WORKFLOW.md` — exact Spark operating contract.
+- `decisions/ADR-0001-go-cli-python-worker.md` — architecture decision.
+- `milestones/` — standalone milestone prompts with preconditions, ready-to-create issue contracts, validation commands, ship gates, and stop rules.
 
-## Recommended Claude + Spark Workflow
+## Start Here
 
-1. Place this kit in the Echo repository under `docs/planning/cli-v2/`.
-2. Run `/spark:onboard` once if the repository has not been onboarded.
-3. Give Claude `project-overview.md`, the ADR, and the current milestone prompt.
-4. Use `/spark:plan` to convert the milestone into the smallest independently shippable issues.
-5. For each issue, run `/spark:codify`, `/spark:validate`, and `/spark:ship`.
-6. Do not begin the next milestone until the current milestone definition of done passes.
+1. Place this kit under `docs/planning/cli-v2.1-spark/`.
+2. Run `/spark:onboard` once, then `spark doctor`.
+3. Commit the planning kit.
+4. Read `SPARK-WORKFLOW.md`.
+5. Start Milestone 1 with `/spark:plan`.
+6. Create the supplied issues and execute each through `/spark:codify`, `/spark:validate`, and `/spark:ship`.
 
-The milestone documents are authoritative. Do not let implementation sessions expand the product into a GUI, web service, or SaaS.
+The milestone documents are authoritative. Do not expand Echo into a GUI, API, browser recorder, Supabase project, or SaaS during this build.

@@ -83,3 +83,127 @@ Provide a separately documented manual GPU smoke test.
 ## Definition of Done
 
 The fake backend passes in CI, and a documented Windows GPU command can transcribe a prepared WAV into contract-valid JSON with valid progress events.
+
+## Spark Planning Instructions
+
+Use `/spark:plan` to convert this milestone into the issue contracts below. Create one GitHub issue per contract unless repository evidence proves a smaller split is necessary. Do not combine issues merely to reduce issue count.
+
+For every issue:
+
+- Keep one observable capability per issue.
+- Use one focused branch and one pull request.
+- Copy the acceptance criteria into the GitHub issue as checkboxes.
+- Add implementation notes only when they are evidence-backed and necessary.
+- Do not pull work forward from later milestones.
+- Do not perform unrelated cleanup, renaming, or dependency upgrades.
+- Update documentation only when behavior or a contract changed.
+
+## Preconditions
+
+- Milestone 3 is merged.
+- An optimized WAV fixture exists.
+- The worker contract version is documented.
+
+## Spark Issue Contracts
+
+### Issue 1: Implement worker CLI and settings model
+
+**Acceptance criteria**
+
+- [ ] `echo-worker version`, `doctor`, and `transcribe` exist.
+- [ ] Arguments are validated with stable exit codes.
+- [ ] Effective settings are explicit.
+- [ ] CLI tests pass without GPU access.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 2: Implement versioned event and transcript contracts
+
+**Acceptance criteria**
+
+- [ ] Stdout contains NDJSON events only.
+- [ ] Human diagnostics go to stderr.
+- [ ] Every event and transcript includes a schema version.
+- [ ] Contract fixtures validate successfully.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 3: Implement faster-whisper inference adapter
+
+**Acceptance criteria**
+
+- [ ] The production adapter uses `faster-whisper`.
+- [ ] CUDA is the default requested device and unavailable CUDA fails clearly.
+- [ ] No silent CPU fallback occurs unless explicitly selected.
+- [ ] Model, language, device, and compute type are recorded.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 4: Implement atomic output and structured errors
+
+**Acceptance criteria**
+
+- [ ] Transcript output is committed atomically only after success.
+- [ ] Backend and input failures map to documented codes.
+- [ ] Partial output never masquerades as complete.
+- [ ] Failure tests pass.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+### Issue 5: Add deterministic fake backend and GPU smoke test
+
+**Acceptance criteria**
+
+- [ ] CI uses a fake backend without model downloads.
+- [ ] Segment ordering and text normalization are tested.
+- [ ] A manual Windows GPU smoke-test procedure exists.
+- [ ] `uv run pytest` passes.
+
+**Required artifacts**
+
+- Focused implementation and tests.
+- Updated help or documentation only where behavior changed.
+- No generated user data, model files, local environments, or unrelated changes in the diff.
+
+## Required Validation
+
+Run and record the relevant results:
+
+```text
+cd worker && uv sync
+cd worker && uv run pytest
+cd worker && uv run echo-worker version
+cd worker && uv run echo-worker doctor
+Run documented fake-backend transcription fixture
+```
+
+## Ship Gate
+
+Do not run `/spark:ship` until:
+
+- Every acceptance criterion for the current issue is satisfied.
+- Required automated checks pass.
+- The diff contains no work from a later milestone.
+- User-facing behavior and documentation agree.
+- Generated files, secrets, recordings, transcripts, models, and local environments are excluded.
+- The pull request links the GitHub issue and states how the behavior was verified.
+
+## Stop Rule
+
+After shipping the current issue, stop. Resume with the next approved GitHub issue through `/spark:codify`; do not continue implementing from the milestone prompt on the same branch.
