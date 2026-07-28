@@ -1,31 +1,27 @@
-# Echo MVP Prompt Kit
+# Echo CLI Prompt Kit v2
 
-Echo is a voice-capture and transcription product that begins as a local Windows CLI for WAV files, grows into a local application, and eventually becomes a multi-user SaaS.
+This kit contains the authoritative build plan for the first shippable version of Echo: a local Windows command-line tool that converts WAV recordings into structured, timestamped transcripts using a local NVIDIA GPU.
 
-This kit contains:
+## Architecture
 
-- `project-overview.md` — product vision, architecture, constraints, and build philosophy
-- `build-sequence.md` — the recommended milestone order and definition of done
-- `milestones/` — one standalone implementation prompt per milestone
+- Go owns the CLI, conversation model, filesystem orchestration, FFmpeg execution, configuration, progress, and exports.
+- Python owns GPU inference through `faster-whisper`, CUDA, and cuDNN.
+- The two components communicate through a versioned subprocess contract using JSON on disk and JSON status events on standard output.
 
-## Recommended Use
+## Contents
 
-Give your coding agent `project-overview.md` first. Then run the milestone prompts in numerical order.
+- `project-overview.md` — product scope, architecture, domain model, and definition of done.
+- `build-sequence.md` — recommended order and issue boundaries.
+- `decisions/ADR-0001-go-cli-python-worker.md` — architectural decision record.
+- `milestones/` — one standalone implementation prompt per milestone.
 
-Each milestone prompt is designed to be usable independently, but assumes the repository already includes the work from previous milestones.
+## Recommended Claude + Spark Workflow
 
-## Core Principle
+1. Place this kit in the Echo repository under `docs/planning/cli-v2/`.
+2. Run `/spark:onboard` once if the repository has not been onboarded.
+3. Give Claude `project-overview.md`, the ADR, and the current milestone prompt.
+4. Use `/spark:plan` to convert the milestone into the smallest independently shippable issues.
+5. For each issue, run `/spark:codify`, `/spark:validate`, and `/spark:ship`.
+6. Do not begin the next milestone until the current milestone definition of done passes.
 
-Do not build the SaaS first.
-
-Build the product in this order:
-
-1. Local transcription engine
-2. Windows CLI
-3. Local API
-4. Qwik application
-5. Browser recorder
-6. Single-user server
-7. Supabase-backed SaaS
-
-The CLI remains a permanent interface for automation, debugging, batch processing, and advanced use.
+The milestone documents are authoritative. Do not let implementation sessions expand the product into a GUI, web service, or SaaS.

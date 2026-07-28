@@ -1,173 +1,121 @@
-# Echo Project Overview
+# Echo CLI — Project Overview
 
 ## Product
 
-Echo is a voice-capture and transcription workspace for users who think best by talking.
+Echo CLI is a local Windows transcription tool for people who think by talking. It accepts WAV recordings, preserves the original audio, creates a transcription-ready derivative, runs Whisper on the user's NVIDIA GPU, and produces structured JSON plus readable Markdown.
 
-A user creates a conversation, adds an outline and supporting resources, records or imports audio, transcribes it with Whisper, and receives a timestamped transcript connected to the original audio and supporting context.
+This repository delivers only the CLI product. A graphical application and hosted SaaS may be built later, but they are explicitly outside this plan.
 
-## Product Evolution
+## First Complete User Journey
 
-Echo will be developed incrementally through three product stages.
+```powershell
+echo doctor
+echo new "Product Strategy"
+echo add .\recordings\idea.wav
+echo transcribe
+echo show
+echo export markdown
+```
 
-### Stage 1: Windows CLI
+The workflow must create a durable conversation workspace containing the original WAV, optimized WAV, job metadata, timestamped transcript, and export.
 
-The first version runs locally on Windows and accepts WAV files.
+## Technology Stack
 
-The user can:
+### Go CLI
 
-- Create a conversation
-- Add a WAV file
-- Preserve the original audio
-- Optimize audio for transcription
-- Transcribe with Whisper using a local NVIDIA GPU
-- View the transcript
-- Export Markdown and JSON
+Use a current stable Go release and conventional Go module layout.
 
-### Stage 2: Local Application
+Go owns:
 
-The second version adds:
+- Command parsing and terminal UX
+- Conversation creation and selection
+- Configuration and path resolution
+- WAV validation and metadata inspection
+- Original-file preservation
+- FFmpeg process orchestration
+- Worker installation checks and invocation
+- Job state and recovery
+- Transcript loading and validation
+- Markdown and JSON exports
+- Logging, progress, and error presentation
 
-- Local API
-- Qwik web interface
-- Conversation dashboard
-- File and link attachments
-- Browser recording
-- Manual pause and resume
-- Automatic pause after inactivity
-- Transcript editing
+Suggested libraries may include Cobra for commands and a lightweight structured logging package, but prefer the standard library where it keeps the system simpler.
 
-### Stage 3: SaaS
+### Python GPU Worker
 
-The final stage adds:
-
-- Supabase authentication
-- Multi-user data isolation
-- Cloud storage
-- Subscription billing
-- Usage metering
-- Hosted processing jobs
-- GPU worker orchestration
-
-## Initial Technical Stack
-
-### CLI and Core Engine
+Use:
 
 - Python 3.12+
 - uv
-- Typer
-- Rich
-- Pydantic
 - faster-whisper
-- FFmpeg
-- pytest
+- CUDA
+- cuDNN
 
-### Local Application
+Python owns only machine-learning inference:
 
-- FastAPI
-- SQLite
-- Qwik
-- Local filesystem storage
-- Background job runner
+- Load the requested Whisper model
+- Select CUDA or report an actionable failure
+- Transcribe an already optimized WAV
+- Emit timestamped transcript segments
+- Emit machine-readable progress events
+- Write a versioned transcript result
 
-### SaaS
+The worker must not manage conversations, exports, or application configuration beyond its own inference options.
 
-- Qwik
-- Supabase Auth
-- Supabase PostgreSQL
-- Supabase Storage or S3-compatible object storage
-- GPU transcription workers
-- Durable job queue
-- Stripe
+### External Runtime
 
-## First Executable Target
+FFmpeg is an explicit prerequisite for the first release. Echo detects it, reports its version, and invokes it without modifying the source WAV.
 
-```powershell
-uv run echo transcribe .\recording.wav
-```
+## Process Boundary
 
-The command must:
-
-1. Validate the input WAV
-2. Preserve the source file
-3. Create a transcription-optimized WAV
-4. Run Whisper on the local GPU
-5. Save a timestamped JSON transcript
-6. Save a readable Markdown transcript
-7. Report useful progress and errors
-
-## Core Domain Objects
-
-### Conversation
-
-A workspace containing recordings, resources, transcripts, and exports.
-
-### Recording
-
-An original audio source associated with a conversation.
-
-### Optimized Audio
-
-A derived transcription-ready copy of the original audio.
-
-### Transcript
-
-The complete machine-generated text for a recording or conversation.
-
-### Transcript Segment
-
-A timestamped section of speech.
-
-### Resource
-
-A note, file, image, media attachment, or website linked to a conversation.
-
-### Transcription Job
-
-A tracked processing operation with status, timing, model, and error information.
-
-## Architectural Boundaries
-
-The following modules should remain separate from the first milestone onward.
-
-### Conversation Service
-
-- Create conversations
-- Load and update metadata
-- Resolve conversation paths
-- Track state
-
-### Audio Service
-
-- Validate audio
-- Inspect metadata
-- Preserve source files
-- Run FFmpeg optimization
-
-### Transcription Service
-
-- Load Whisper
-- Select device and compute type
-- Transcribe audio
-- Produce structured segments
-
-### Export Service
-
-- Export JSON
-- Export Markdown
-- Later export text and other formats
-
-### Storage Service
-
-- Resolve paths
-- Copy files safely
-- Write files atomically
-- Prevent accidental overwrite
-
-## Local Conversation Structure
+The first integration is a subprocess boundary:
 
 ```text
-echo-data/
+Go CLI
+  -> invokes uv run echo-worker transcribe
+  -> passes explicit input/output arguments
+  -> reads newline-delimited JSON progress events from stdout
+  -> reads the completed transcript JSON from disk
+```
+
+Human-readable diagnostics belong on stderr. Machine-readable status events belong on stdout. The contract must be versioned so a future HTTP or gRPC transport can replace the subprocess without changing domain models.
+
+## Suggested Repository Structure
+
+```text
+echo/
+├── cmd/
+│   └── echo/
+│       └── main.go
+├── internal/
+│   ├── app/
+│   ├── audio/
+│   ├── config/
+│   ├── conversation/
+│   ├── export/
+│   ├── jobs/
+│   ├── storage/
+│   ├── transcript/
+│   └── worker/
+├── worker/
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── src/
+│   │   └── echo_worker/
+│   └── tests/
+├── docs/
+│   ├── architecture/
+│   └── usage/
+├── testdata/
+├── go.mod
+├── go.sum
+└── README.md
+```
+
+## Local Data Structure
+
+```text
+<ECHO_DATA_DIR>/
 └── conversations/
     └── <conversation-id>/
         ├── conversation.json
@@ -176,41 +124,147 @@ echo-data/
         ├── audio/
         │   ├── source.wav
         │   └── optimized.wav
+        ├── jobs/
+        │   └── <job-id>.json
         ├── transcript/
         │   ├── transcript.json
-        │   ├── transcript.md
         │   └── segments.json
         └── exports/
+            └── transcript.md
 ```
+
+The default Windows data root should follow Windows conventions, such as `%LOCALAPPDATA%\Echo`, and support an `ECHO_DATA_DIR` override.
+
+## Canonical Domain Objects
+
+### Conversation
+
+- ID
+- Title
+- Slug
+- Created and updated timestamps
+- Status
+- Active recording ID
+- Active transcript ID
+
+### Recording
+
+- ID
+- Original filename
+- Source path
+- Optimized path
+- SHA-256 checksum
+- Duration
+- Sample rate
+- Channels
+- Sample format
+- Import timestamp
+
+### Transcription Job
+
+- ID
+- Conversation ID
+- Recording ID
+- State
+- Worker contract version
+- Model
+- Language mode
+- Device
+- Compute type
+- Created, started, and completed timestamps
+- Error code and message
+
+### Transcript
+
+- Schema version
+- Transcript ID
+- Conversation ID
+- Recording ID
+- Model and runtime metadata
+- Detected language
+- Duration
+- Ordered segments
+
+### Transcript Segment
+
+- Sequence
+- Start seconds
+- End seconds
+- Text
+- Optional confidence metadata
+
+Use explicit JSON schemas or strongly validated structures on both sides of the Go/Python boundary.
+
+## CLI Commands in Scope
+
+```text
+echo version
+echo doctor
+echo new <title>
+echo list
+echo use <conversation-id>
+echo status
+echo add <wav-path>
+echo transcribe [flags]
+echo show [flags]
+echo export markdown [flags]
+```
+
+A global `--conversation` flag may allow commands to avoid relying on active-conversation state.
 
 ## Engineering Principles
 
-1. Build the smallest complete vertical slice first.
-2. Preserve original audio without modification.
-3. Keep domain logic independent from interfaces.
-4. Make every long-running operation observable.
-5. Make failed jobs resumable.
-6. Use structured data as the source of truth.
-7. Treat Markdown as an export, not the canonical transcript.
-8. Keep local-first workflows working after the SaaS exists.
-9. Avoid premature distributed-system complexity.
-10. Add infrastructure only when a product requirement demands it.
+1. The CLI is a real product, not disposable scaffolding.
+2. Go owns orchestration; Python owns inference.
+3. Preserve original audio exactly and verify it with a checksum.
+4. Structured data is canonical; Markdown is an export.
+5. Every operation should be safe to retry.
+6. Writes that define state should be atomic.
+7. Errors should be actionable for a Windows user.
+8. Subprocess contracts must be versioned and testable without a GPU.
+9. GPU-specific tests must be clearly separated from ordinary CI.
+10. Scope is enforced more aggressively than architecture is optimized.
 
-## Explicit Non-Goals for the First MVP
+## Explicit Non-Goals
 
 Do not add:
 
-- Supabase
+- GUI or desktop shell
 - Qwik
 - FastAPI
-- Docker
-- Redis
-- Stripe
-- User accounts
+- Supabase
+- Authentication
+- Browser recording
+- Subscriptions or billing
+- Cloud storage
+- Redis or distributed queues
+- Docker as a user requirement
+- MP3 or video input
 - Speaker diarization
 - Live transcription
-- MP3 or video support
-- Cloud storage
-- Team collaboration
+- Multi-user support
+- Remote APIs
 
-The first MVP is successful when one WAV file can reliably become a structured transcript on the local Windows machine.
+## Release Definition of Done
+
+The CLI MVP is complete when a Windows user with FFmpeg, uv, Python, CUDA, cuDNN, and an NVIDIA GPU can:
+
+```powershell
+echo doctor
+echo new "My Idea"
+echo add .\my-idea.wav
+echo transcribe --model large-v3
+echo show
+echo export markdown
+```
+
+and receive:
+
+- The unchanged source WAV
+- A normalized mono 16 kHz PCM WAV
+- Durable job state
+- Timestamped transcript JSON
+- Readable Markdown export
+- Clear progress and actionable errors
+
+The Go CLI should be distributed as a Windows executable. The Python worker may remain an explicitly managed uv environment for v0.1.

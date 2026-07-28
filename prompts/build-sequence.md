@@ -1,47 +1,90 @@
-# Echo Build Sequence
+# Echo CLI v2 — Build Sequence
 
-## Milestone 1 — Repository Foundation
+Each milestone is independently shippable and should be converted into small GitHub issues. The milestone prompt defines scope; issues define implementation units.
 
-Create the Python project, package layout, configuration, typed models, logging, and CLI shell.
+## Milestone 1 — Go Repository and CLI Foundation
 
-## Milestone 2 — WAV Inspection and Optimization
+Deliver a runnable Go CLI with `version` and `doctor`, configuration, path resolution, logging, and test infrastructure. Create the Python worker package as a stub only.
 
-Validate WAV files, inspect audio metadata, preserve originals, and create FFmpeg-optimized copies.
+Suggested issues:
 
-## Milestone 3 — GPU Whisper Transcription
+1. Initialize Go module and command tree.
+2. Add configuration and Windows data paths.
+3. Implement environment diagnostics.
+4. Scaffold Python worker and contract fixtures.
+5. Add CI and developer documentation.
 
-Run faster-whisper locally on the NVIDIA GPU and produce timestamped transcript segments.
+## Milestone 2 — Conversation Workspace
 
-## Milestone 4 — Conversation Workspace
+Deliver local conversation creation, listing, selection, metadata persistence, and atomic filesystem operations.
 
-Add persistent conversation folders, metadata, audio imports, and active-conversation commands.
+Suggested issues:
 
-## Milestone 5 — Transcript Export and Review
+1. Define conversation schema and storage layout.
+2. Implement create/list/get operations.
+3. Implement active conversation selection.
+4. Add status command and corruption handling.
 
-Add Markdown and JSON export, terminal transcript viewing, timestamps, and stable schemas.
+## Milestone 3 — WAV Import and Optimization
 
-## Milestone 6 — Reliability and Testing
+Deliver safe WAV validation, source preservation, metadata extraction, checksum verification, and FFmpeg optimization.
 
-Add retries, atomic writes, resumable jobs, validation, test fixtures, and clear operational logging.
+Suggested issues:
 
-## Milestone 7 — Local FastAPI Service
+1. WAV extension and format validation.
+2. Source import with collision policy and SHA-256.
+3. FFprobe metadata inspection.
+4. FFmpeg optimized derivative.
+5. Idempotency and failure cleanup tests.
 
-Expose the existing core through a local HTTP API without duplicating domain logic.
+## Milestone 4 — Python Whisper Worker
 
-## Milestone 8 — Qwik Local Application
+Deliver an independently testable worker that transcribes an optimized WAV and writes the canonical transcript schema.
 
-Build the conversation dashboard, WAV upload, job status, transcript viewer, and audio playback.
+Suggested issues:
 
-## Milestone 9 — Browser Recording
+1. Worker CLI and settings model.
+2. Contract schemas and progress events.
+3. `faster-whisper` CUDA implementation.
+4. Atomic output and structured errors.
+5. CPU/fake-model test path for CI.
 
-Add recording, pause, resume, segmented capture, upload, and inactivity-based automatic pause.
+## Milestone 5 — Go/Worker Integration
 
-## Milestone 10 — Supabase SaaS Foundation
+Deliver `echo transcribe`, subprocess management, progress display, job state, result validation, cancellation, and safe retries.
 
-Add authentication, tenant-aware data, storage, subscriptions, usage metering, and remote GPU jobs.
+Suggested issues:
 
-## Product Gates
+1. Worker discovery and compatibility check.
+2. Job state machine.
+3. Subprocess execution and event parsing.
+4. Result validation and transcript commit.
+5. Interrupt, retry, and failure recovery.
 
-Do not begin Milestone 7 until Milestones 1–6 work reliably from the CLI.
+## Milestone 6 — Transcript Review and Export
 
-Do not begin Milestone 10 until the local Qwik application has a proven user workflow.
+Deliver terminal review and deterministic Markdown export from canonical JSON.
+
+Suggested issues:
+
+1. Transcript repository and segment formatting.
+2. `echo show` with timestamps and pagination behavior.
+3. Markdown exporter.
+4. Export collision and overwrite policy.
+5. Golden-file tests.
+
+## Milestone 7 — Reliability, Packaging, and v0.1 Release
+
+Deliver a Windows-ready release candidate with integration tests, diagnostics, documentation, and reproducible builds.
+
+Suggested issues:
+
+1. End-to-end fixture tests with fake worker.
+2. Optional GPU smoke-test procedure.
+3. Windows build and release artifacts.
+4. Installation and troubleshooting docs.
+5. Versioning, changelog, and release checklist.
+
+## Stop Condition
+
+After Milestone 7, stop. Do not add an API, GUI, recorder, Supabase, or SaaS concerns to this repository phase. Collect real usage feedback before planning the next product surface.
