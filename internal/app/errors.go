@@ -92,3 +92,14 @@ func (e *environmentError) Error() string {
 	return fmt.Sprintf("%d required %s unavailable: %s",
 		len(e.blocking), noun, strings.Join(names, ", "))
 }
+
+// reportedError wraps a failure whose full explanation has already been written
+// to the user. It still sets a nonzero exit code, but the central reporter stays
+// quiet so the same cause is not printed twice.
+type reportedError struct {
+	cause error
+}
+
+func (e *reportedError) Error() string { return e.cause.Error() }
+
+func (e *reportedError) Unwrap() error { return e.cause }
