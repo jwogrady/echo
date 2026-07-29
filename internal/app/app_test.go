@@ -399,3 +399,187 @@ func TestListOutputIsStableAcrossRuns(t *testing.T) {
 		t.Errorf("list output varies between runs:\n--- first ---\n%s\n--- second ---\n%s", first, second)
 	}
 }
+
+// createConversation makes one via the CLI and returns its id.
+func createConversation(t *testing.T, title string) string {
+	t.Helper()
+
+	code, out, errOut := run(t, "new", title)
+	if code != ExitOK {
+		t.Fatalf("new %q exit = %d (stderr: %q)", title, code, errOut)
+	}
+
+	fields := strings.Fields(strings.SplitN(out, "\n", 2)[0])
+	if len(fields) < 2 {
+		t.Fatalf("cannot read the id from %q", out)
+	}
+
+	return fields[1]
+}
+
+func TestUseSelectsByFullID(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Alpha")
+
+	code, out, errOut := run(t, "use", id)
+	if code != ExitOK {
+		t.Fatalf("use exit = %d (stderr: %q)", code, errOut)
+	}
+	if !strings.Contains(out, "Using "+id) {
+		t.Errorf("output = %q, want it to confirm %q", out, id)
+	}
+	if !strings.Contains(out, "Alpha") {
+		t.Errorf("output = %q, want the title", out)
+	}
+}
+
+func TestUseSelectsByUniquePrefix(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Alpha")
+
+	// Six characters of the body, lowercased and without the cnv_ prefix.
+	prefix := strings.ToLower(strings.TrimPrefix(id, "cnv_")[:6])
+
+	code, out, errOut := run(t, "use", prefix)
+	if code != ExitOK {
+		t.Fatalf("use %q exit = %d (stderr: %q)", prefix, code, errOut)
+	}
+	if !strings.Contains(out, "Using "+id) {
+		t.Errorf("output = %q, want it to resolve to %q", out, id)
+	}
+}
+
+func TestUseReportsNoMatchAsARuntimeError(t *testing.T) {
+	withTempDataDir(t)
+	createConversation(t, "Alpha")
+
+	code, _, errOut := run(t, "use", "ZZZZZZ")
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(errOut, "no conversation matches") {
+		t.Errorf("stderr = %q", errOut)
+	}
+}
+
+// A blank argument is a malformed invocation, not a failed lookup.
+func TestUseTreatsABlankArgumentAsUsage(t *testing.T) {
+	withTempDataDir(t)
+
+	code, _, errOut := run(t, "use", "   ")
+	if code != ExitUsage {
+		t.Errorf("exit = %d, want %d", code, ExitUsage)
+	}
+	if strings.Contains(errOut, "no conversation matches") {
+		t.Errorf("stderr = %q, want a usage message rather than a lookup failure", errOut)
+	}
+}
+
+func TestUseRequiresAnArgument(t *testing.T) {
+	withTempDataDir(t)
+
+	if code, _, _ := run(t, "use"); code != ExitUsage {
+		t.Errorf("exit = %d, want %d", code, ExitUsage)
+	}
+}
+
+func TestUseIsNoLongerPending(t *testing.T) {
+	for _, name := range pendingCommandNames() {
+		if name == "use" {
+			t.Error("use is still registered as a placeholder")
+		}
+	}
+}
+
+// The flag must exist on every command, so automation never depends on what a
+// human selected.
+func TestConversationFlagIsGlobal(t *testing.T) {
+	root := NewRootCommand(Streams{})
+
+	if root.PersistentFlags().Lookup("conversation") == nil {
+		t.Fatal("--conversation is not registered as a persistent flag")
+	}
+
+	for _, command := range root.Commands() {
+		if command.Flags().Lookup("conversation") == nil && command.InheritedFlags().Lookup("conversation") == nil {
+			t.Errorf("%s does not see --conversation", command.Name())
+		}
+	}
+}
+
+// The flag overrides the persisted selection without changing it.
+func TestConversationFlagOverridesWithoutPersisting(t *testing.T) {
+	withTempDataDir(t)
+
+	selected := createConversation(t, "Selected")
+	other := createConversation(t, "Other")
+
+	if code, _, errOut := run(t, "use", selected); code != ExitOK {
+		t.Fatalf("use exit = %d (stderr: %q)", code, errOut)
+	}
+
+	repo, err := repository()
+	if err != nil {
+		t.Fatalf("repository() error = %v", err)
+	}
+
+	flag := &conversationFlag{value: other}
+	target, err := flag.target(repo)
+	if err != nil {
+		t.Fatalf("target() error = %v", err)
+	}
+	if target != other {
+		t.Errorf("target() = %q, want the flag value %q", target, other)
+	}
+
+	active, err := repo.ActiveID()
+	if err != nil {
+		t.Fatalf("ActiveID() error = %v", err)
+	}
+	if active != selected {
+		t.Errorf("the flag changed the persisted selection to %q, want %q", active, selected)
+	}
+}
+
+func TestTargetFallsBackToTheSelection(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Alpha")
+
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	repo, err := repository()
+	if err != nil {
+		t.Fatalf("repository() error = %v", err)
+	}
+
+	target, err := (&conversationFlag{}).target(repo)
+	if err != nil {
+		t.Fatalf("target() error = %v", err)
+	}
+	if target != id {
+		t.Errorf("target() = %q, want %q", target, id)
+	}
+}
+
+// With nothing selected and no flag, the error must say how to proceed.
+func TestTargetWithoutASelectionIsActionable(t *testing.T) {
+	withTempDataDir(t)
+
+	repo, err := repository()
+	if err != nil {
+		t.Fatalf("repository() error = %v", err)
+	}
+
+	_, err = (&conversationFlag{}).target(repo)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), buildinfo.Name+" use") {
+		t.Errorf("error = %q, want it to suggest the use command", err)
+	}
+	if !strings.Contains(err.Error(), "--conversation") {
+		t.Errorf("error = %q, want it to mention the flag", err)
+	}
+}
