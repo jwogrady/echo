@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"strings"
@@ -823,5 +824,205 @@ func TestStatusRejectsArguments(t *testing.T) {
 
 	if code, _, _ := run(t, "status", "surplus"); code != ExitUsage {
 		t.Errorf("exit = %d, want %d", code, ExitUsage)
+	}
+}
+
+// wavFixture writes a real RIFF/WAVE file for command-level tests.
+func wavFixture(t *testing.T, name string, samples int) string {
+	t.Helper()
+
+	payload := make([]byte, samples*2)
+	for i := range payload {
+		payload[i] = byte(i % 251)
+	}
+
+	header := make([]byte, 44)
+	copy(header[0:4], "RIFF")
+	binary.LittleEndian.PutUint32(header[4:8], uint32(36+len(payload)))
+	copy(header[8:12], "WAVE")
+	copy(header[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(header[16:20], 16)
+	binary.LittleEndian.PutUint16(header[20:22], 1)
+	binary.LittleEndian.PutUint16(header[22:24], 1)
+	binary.LittleEndian.PutUint32(header[24:28], 16000)
+	binary.LittleEndian.PutUint32(header[28:32], 32000)
+	binary.LittleEndian.PutUint16(header[32:34], 2)
+	binary.LittleEndian.PutUint16(header[34:36], 16)
+	copy(header[36:40], "data")
+	binary.LittleEndian.PutUint32(header[40:44], uint32(len(payload)))
+
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, append(header, payload...), 0o644); err != nil {
+		t.Fatalf("writing the fixture: %v", err)
+	}
+
+	return path
+}
+
+// selectedConversation creates a conversation and makes it active.
+func selectedConversation(t *testing.T, title string) string {
+	t.Helper()
+
+	id := createConversation(t, title)
+	if code, _, errOut := run(t, "use", id); code != ExitOK {
+		t.Fatalf("use failed: %s", errOut)
+	}
+
+	return id
+}
+
+func TestAddImportsARecording(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	code, out, errOut := run(t, "add", fixture)
+	if code != ExitOK {
+		t.Fatalf("exit = %d (stderr: %q)", code, errOut)
+	}
+	for _, want := range []string{"Imported recording.wav", "rec_", "sha256"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// Progress belongs on stderr so stdout stays parseable.
+func TestAddReportsProgressOnStderr(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	_, out, errOut := run(t, "add", fixture)
+
+	if !strings.Contains(errOut, "hashing source") {
+		t.Errorf("stderr should carry stage progress:\n%s", errOut)
+	}
+	if strings.Contains(out, "hashing source") {
+		t.Errorf("stdout should not carry progress:\n%s", out)
+	}
+}
+
+func TestAddAdvancesTheConversationStatus(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	if code, _, errOut := run(t, "add", fixture); code != ExitOK {
+		t.Fatalf("add failed: %s", errOut)
+	}
+
+	_, out, _ := run(t, "status")
+	if !strings.Contains(out, "recording_added") {
+		t.Errorf("status should advance to recording_added:\n%s", out)
+	}
+	if !strings.Contains(out, "rec_") {
+		t.Errorf("status should name the recording:\n%s", out)
+	}
+}
+
+func TestAddRejectsNonWAVInput(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+
+	fake := filepath.Join(t.TempDir(), "fake.wav")
+	if err := os.WriteFile(fake, []byte("ID3\x04\x00\x00\x00\x00\x00\x00junk"), 0o644); err != nil {
+		t.Fatalf("writing the fixture: %v", err)
+	}
+
+	code, _, errOut := run(t, "add", fake)
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(errOut, "not a WAV file") {
+		t.Errorf("stderr = %q", errOut)
+	}
+}
+
+func TestAddIsIdempotent(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	if code, _, _ := run(t, "add", fixture); code != ExitOK {
+		t.Fatal("first add failed")
+	}
+
+	code, out, _ := run(t, "add", fixture)
+	if code != ExitOK {
+		t.Errorf("re-adding the same file should succeed, got exit %d", code)
+	}
+	if !strings.Contains(out, "Already imported") {
+		t.Errorf("output should say it was already imported:\n%s", out)
+	}
+}
+
+func TestAddRefusesADifferentFileWithoutReplace(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Audio Test")
+
+	first := wavFixture(t, "first.wav", 800)
+	second := wavFixture(t, "second.wav", 1600)
+
+	if code, _, _ := run(t, "add", first); code != ExitOK {
+		t.Fatal("first add failed")
+	}
+
+	code, _, errOut := run(t, "add", second)
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(errOut, "--replace") {
+		t.Errorf("stderr should name --replace: %q", errOut)
+	}
+
+	code, out, _ := run(t, "add", second, "--replace")
+	if code != ExitOK {
+		t.Errorf("--replace exit = %d, want %d", code, ExitOK)
+	}
+	if !strings.Contains(out, "second.wav") {
+		t.Errorf("output should confirm the replacement:\n%s", out)
+	}
+}
+
+func TestAddRequiresASelectedConversation(t *testing.T) {
+	withTempDataDir(t)
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	code, _, errOut := run(t, "add", fixture)
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(errOut, buildinfo.Name+" use") {
+		t.Errorf("stderr should suggest selecting a conversation: %q", errOut)
+	}
+}
+
+func TestAddHonorsTheConversationFlag(t *testing.T) {
+	withTempDataDir(t)
+	selected := selectedConversation(t, "Selected")
+	other := createConversation(t, "Other")
+	fixture := wavFixture(t, "recording.wav", 800)
+
+	if code, _, errOut := run(t, "add", fixture, "--conversation", other); code != ExitOK {
+		t.Fatalf("add failed: %s", errOut)
+	}
+
+	_, out, _ := run(t, "status", "--conversation", other)
+	if !strings.Contains(out, "recording_added") {
+		t.Errorf("the flagged conversation should hold the recording:\n%s", out)
+	}
+
+	_, out, _ = run(t, "status", "--conversation", selected)
+	if strings.Contains(out, "recording_added") {
+		t.Errorf("the selected conversation should be untouched:\n%s", out)
+	}
+}
+
+func TestAddIsNoLongerPending(t *testing.T) {
+	for _, name := range pendingCommandNames() {
+		if name == "add" {
+			t.Error("add is still registered as a placeholder")
+		}
 	}
 }

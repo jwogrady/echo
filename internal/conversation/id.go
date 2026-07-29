@@ -22,18 +22,43 @@ const idAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 // practical concern even though IDs are generated independently on one machine.
 const idBodyLength = 26
 
+// NewIDWithPrefix returns a fresh identifier carrying the given prefix.
+//
+// Recordings and transcripts share this generator so the alphabet — and the
+// reasoning behind excluding ambiguous letters — lives in exactly one place.
+func NewIDWithPrefix(prefix string) (string, error) {
+	body, err := randomString(idBodyLength)
+	if err != nil {
+		return "", fmt.Errorf("generating a %s identifier: %w", strings.TrimSuffix(prefix, "_"), err)
+	}
+
+	return prefix + body, nil
+}
+
+// ValidIDWithPrefix reports whether id has the shape NewIDWithPrefix produces.
+// It is a path guard as much as a format check: identifiers become filenames.
+func ValidIDWithPrefix(prefix, id string) bool {
+	body, ok := strings.CutPrefix(id, prefix)
+	if !ok || len(body) != idBodyLength {
+		return false
+	}
+
+	for _, r := range body {
+		if !strings.ContainsRune(idAlphabet, r) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // NewID returns a fresh conversation identifier.
 //
 // Randomness comes from crypto/rand rather than a timestamp or a counter: IDs
 // double as directory names and as the thing a user types a prefix of, so two
 // conversations created in the same second must not share a prefix.
 func NewID() (string, error) {
-	body, err := randomString(idBodyLength)
-	if err != nil {
-		return "", fmt.Errorf("generating a conversation id: %w", err)
-	}
-
-	return IDPrefix + body, nil
+	return NewIDWithPrefix(IDPrefix)
 }
 
 // randomString draws length characters from idAlphabet without modulo bias.
@@ -58,18 +83,7 @@ func randomString(length int) (string, error) {
 // path traversal as much as a format check: identifiers become directory names,
 // so anything containing a separator or a dot segment must be refused.
 func ValidID(id string) bool {
-	body, ok := strings.CutPrefix(id, IDPrefix)
-	if !ok || len(body) != idBodyLength {
-		return false
-	}
-
-	for _, r := range body {
-		if !strings.ContainsRune(idAlphabet, r) {
-			return false
-		}
-	}
-
-	return true
+	return ValidIDWithPrefix(IDPrefix, id)
 }
 
 // slugMaxLength bounds a slug so a title cannot produce an unwieldy path. Windows
