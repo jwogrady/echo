@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -63,7 +64,7 @@ func TestImportCopiesAndVerifies(t *testing.T) {
 	workspace := newTestWorkspace(t)
 	source := validSource(t, "recording.wav", silence())
 
-	recording, err := testImporter().Import(workspace, "cnv_AAAAAAAAAAAAAAAAAAAAAAAAAA", source, false)
+	recording, err := testImporter().Import(context.Background(), workspace, "cnv_AAAAAAAAAAAAAAAAAAAAAAAAAA", source, false)
 	if err != nil {
 		t.Fatalf("Import() error = %v", err)
 	}
@@ -120,7 +121,7 @@ func TestImportNeverTouchesTheSource(t *testing.T) {
 		t.Fatalf("reading before: %v", err)
 	}
 
-	if _, err := testImporter().Import(workspace, "cnv_A", source, false); err != nil {
+	if _, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false); err != nil {
 		t.Fatalf("Import() error = %v", err)
 	}
 
@@ -146,12 +147,12 @@ func TestReimportingTheSameFileIsANoOp(t *testing.T) {
 	source := validSource(t, "recording.wav", silence())
 	importer := testImporter()
 
-	first, err := importer.Import(workspace, "cnv_A", source, false)
+	first, err := importer.Import(context.Background(), workspace, "cnv_A", source, false)
 	if err != nil {
 		t.Fatalf("first Import() error = %v", err)
 	}
 
-	again, err := importer.Import(workspace, "cnv_A", source, false)
+	again, err := importer.Import(context.Background(), workspace, "cnv_A", source, false)
 	if !errors.Is(err, ErrAlreadyImported) {
 		t.Fatalf("error = %v, want ErrAlreadyImported", err)
 	}
@@ -166,12 +167,12 @@ func TestADifferentFileIsRefusedWithoutReplace(t *testing.T) {
 	importer := testImporter()
 
 	first := validSource(t, "first.wav", silence())
-	if _, err := importer.Import(workspace, "cnv_A", first, false); err != nil {
+	if _, err := importer.Import(context.Background(), workspace, "cnv_A", first, false); err != nil {
 		t.Fatalf("first Import() error = %v", err)
 	}
 
 	second := validSource(t, "second.wav", make([]byte, 2048))
-	_, err := importer.Import(workspace, "cnv_A", second, false)
+	_, err := importer.Import(context.Background(), workspace, "cnv_A", second, false)
 	if !errors.Is(err, ErrDifferentRecording) {
 		t.Fatalf("error = %v, want ErrDifferentRecording", err)
 	}
@@ -194,12 +195,12 @@ func TestReplaceOverwritesDeliberately(t *testing.T) {
 	importer := testImporter()
 
 	first := validSource(t, "first.wav", silence())
-	if _, err := importer.Import(workspace, "cnv_A", first, false); err != nil {
+	if _, err := importer.Import(context.Background(), workspace, "cnv_A", first, false); err != nil {
 		t.Fatalf("first Import() error = %v", err)
 	}
 
 	second := validSource(t, "second.wav", make([]byte, 2048))
-	replaced, err := importer.Import(workspace, "cnv_A", second, true)
+	replaced, err := importer.Import(context.Background(), workspace, "cnv_A", second, true)
 	if err != nil {
 		t.Fatalf("Import(replace) error = %v", err)
 	}
@@ -229,7 +230,7 @@ func TestChecksumMismatchRemovesTheCopy(t *testing.T) {
 		}
 	}
 
-	_, err := importer.Import(workspace, "cnv_A", source, false)
+	_, err := importer.Import(context.Background(), workspace, "cnv_A", source, false)
 	if !errors.Is(err, ErrChecksumMismatch) {
 		t.Fatalf("error = %v, want ErrChecksumMismatch", err)
 	}
@@ -252,7 +253,7 @@ func TestFailuresNameTheirStage(t *testing.T) {
 		t.Fatalf("removing the source: %v", err)
 	}
 
-	_, err := testImporter().Import(workspace, "cnv_A", source, false)
+	_, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -278,7 +279,7 @@ func TestFailedImportLeavesNoPartialState(t *testing.T) {
 		t.Fatalf("removing the source: %v", err)
 	}
 
-	if _, err := testImporter().Import(workspace, "cnv_A", source, false); err == nil {
+	if _, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false); err == nil {
 		t.Fatal("expected an error")
 	}
 
@@ -300,7 +301,7 @@ func TestDamagedRecordingDocumentBlocksImport(t *testing.T) {
 		t.Fatalf("writing the damaged fixture: %v", err)
 	}
 
-	_, err := testImporter().Import(workspace, "cnv_A", source, false)
+	_, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false)
 	if !errors.Is(err, ErrRecordingMalformed) {
 		t.Errorf("error = %v, want ErrRecordingMalformed", err)
 	}
@@ -355,7 +356,7 @@ func TestUnprobedPropertiesAreOmittedFromDisk(t *testing.T) {
 	workspace := newTestWorkspace(t)
 	source := validSource(t, "recording.wav", silence())
 
-	if _, err := testImporter().Import(workspace, "cnv_A", source, false); err != nil {
+	if _, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false); err != nil {
 		t.Fatalf("Import() error = %v", err)
 	}
 
@@ -393,7 +394,7 @@ func TestRemoveRecordingIsIdempotent(t *testing.T) {
 	}
 
 	source := validSource(t, "recording.wav", silence())
-	if _, err := testImporter().Import(workspace, "cnv_A", source, false); err != nil {
+	if _, err := testImporter().Import(context.Background(), workspace, "cnv_A", source, false); err != nil {
 		t.Fatalf("Import() error = %v", err)
 	}
 	if err := RemoveRecording(workspace); err != nil {
