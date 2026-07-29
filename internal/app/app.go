@@ -76,3 +76,6 @@ func report(err error, w io.Writer) {
 		fmt.Fprintf(w, "\nRun %q to see the available commands.\n", buildinfo.Name+" help")
 	}
 }
+
+// commandName is the command users type, read from the one place it is defined.
+func commandName() string { return buildinfo.Name }

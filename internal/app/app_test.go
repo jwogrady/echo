@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jwogrady/echo/internal/buildinfo"
+	"github.com/jwogrady/echo/internal/config"
 )
 
 // run executes args against a fresh command tree and returns the exit code
@@ -310,5 +311,91 @@ func TestDoctorStrictReportsAVerdict(t *testing.T) {
 func TestDoctorRejectsArguments(t *testing.T) {
 	if code, _, _ := run(t, "doctor", "surplus"); code != ExitUsage {
 		t.Errorf("exit code = %d, want %d", code, ExitUsage)
+	}
+}
+
+// withTempDataDir points Echo at a throwaway data root so command tests never
+// touch a developer's real conversations.
+func withTempDataDir(t *testing.T) string {
+	t.Helper()
+
+	root := t.TempDir()
+	t.Setenv(config.EnvDataDir, root)
+
+	return root
+}
+
+func TestNewAndListRoundTrip(t *testing.T) {
+	withTempDataDir(t)
+
+	code, out, errOut := run(t, "new", "Product Strategy")
+	if code != ExitOK {
+		t.Fatalf("new exit = %d, want %d (stderr: %q)", code, ExitOK, errOut)
+	}
+	if !strings.Contains(out, "Created cnv_") {
+		t.Errorf("new output = %q, want it to report the created id", out)
+	}
+
+	code, out, errOut = run(t, "list")
+	if code != ExitOK {
+		t.Fatalf("list exit = %d, want %d (stderr: %q)", code, ExitOK, errOut)
+	}
+	for _, want := range []string{"ID", "TITLE", "STATUS", "UPDATED", "Product Strategy", "created"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// An empty list is a normal state, not an error.
+func TestListOnAnEmptyDataRootSucceeds(t *testing.T) {
+	withTempDataDir(t)
+
+	code, out, _ := run(t, "list")
+	if code != ExitOK {
+		t.Errorf("exit = %d, want %d", code, ExitOK)
+	}
+	if !strings.Contains(out, "No conversations yet") {
+		t.Errorf("output = %q, want a friendly empty state", out)
+	}
+	if !strings.Contains(out, buildinfo.Name+" new") {
+		t.Errorf("output = %q, want it to suggest the real command name", out)
+	}
+}
+
+func TestNewRequiresATitle(t *testing.T) {
+	withTempDataDir(t)
+
+	if code, _, _ := run(t, "new"); code != ExitUsage {
+		t.Errorf("exit = %d, want %d", code, ExitUsage)
+	}
+	if code, _, _ := run(t, "new", "   "); code != ExitError {
+		t.Errorf("blank title exit = %d, want %d", code, ExitError)
+	}
+}
+
+func TestNewAndListAreNoLongerPending(t *testing.T) {
+	for _, name := range pendingCommandNames() {
+		if name == "new" || name == "list" {
+			t.Errorf("%s is still registered as a placeholder", name)
+		}
+	}
+}
+
+// Deterministic output is what makes list safe to script against.
+func TestListOutputIsStableAcrossRuns(t *testing.T) {
+	withTempDataDir(t)
+
+	for _, title := range []string{"One", "Two", "Three"} {
+		if code, _, _ := run(t, "new", title); code != ExitOK {
+			t.Fatalf("new %q failed", title)
+		}
+	}
+
+	_, first, _ := run(t, "list")
+	_, second, _ := run(t, "list")
+
+	if first != second {
+		t.Errorf("list output varies between runs:\n--- first ---\n%s\n--- second ---\n%s", first, second)
 	}
 }
