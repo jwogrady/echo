@@ -207,3 +207,37 @@ func checkTargetFormat(properties Properties) error {
 
 	return nil
 }
+
+// EnsureOptimized guarantees a valid derivative exists, building one only if
+// needed. It reports whether it had to build.
+//
+// This is what makes `add` safe to retry. A run interrupted after the copy but
+// before conversion leaves a conversation with source audio and no derivative;
+// without this, re-adding the same file would report "already imported" and the
+// conversation would never become usable.
+func (c *Converter) EnsureOptimized(ctx context.Context, workspace conversation.Workspace) (Properties, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	existing := OptimizedPath(workspace)
+
+	info, err := os.Stat(existing)
+	switch {
+	case err != nil:
+		// Nothing there, or unreadable: build it.
+	case info.Size() == 0:
+		// A zero-length file is debris from an interrupted run.
+	default:
+		properties, inspectErr := c.Inspect(ctx, existing)
+		if inspectErr == nil && checkTargetFormat(properties) == nil {
+			return properties, false, nil
+		}
+		// Present but unusable — a truncated or wrong-format file must be
+		// rebuilt rather than trusted.
+	}
+
+	properties, err := c.Optimize(ctx, workspace)
+
+	return properties, true, err
+}

@@ -19,8 +19,12 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 		Short: "Import a WAV recording",
 		Long: "Import a WAV recording into the active conversation.\n\n" +
 			"Your file is copied, never moved or modified, and the copy is checksum-\n" +
-			"verified against the original. Re-importing the same file is a no-op.\n" +
-			"Importing a different file over an existing recording requires --replace.",
+			"verified against the original.\n\n" +
+			"Safe to run twice. Re-importing the same file does nothing, unless the\n" +
+			"optimized derivative is missing or unusable — then it is rebuilt, so an\n" +
+			"interrupted import is repaired by simply running add again.\n\n" +
+			"Importing a different file over an existing recording requires --replace,\n" +
+			"which discards the current audio and its derivative.",
 		Args: cobra.ExactArgs(1),
 		RunE: dispatched.mark(func(cmd *cobra.Command, args []string) error {
 			repo, err := repository()
@@ -45,6 +49,8 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 
 			workspace := repo.Workspace(id)
 
+			var alreadyImported bool
+
 			importer := audio.NewImporter()
 			importer.Progress = func(stage audio.Stage) {
 				fmt.Fprintf(streams.Err, "  %s...\n", stage)
@@ -52,33 +58,34 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 
 			recording, err := importer.Import(cmd.Context(), workspace, id, source, replace)
 			if err != nil {
-				if errors.Is(err, audio.ErrAlreadyImported) {
-					fmt.Fprintf(streams.Out, "Already imported: %s (%s)\n",
-						recording.OriginalFilename, recording.ID)
-					fmt.Fprintf(streams.Out, "Nothing to do. Pass --replace to import a different file.\n")
-
-					return nil
+				if !errors.Is(err, audio.ErrAlreadyImported) {
+					return err
 				}
 
-				return err
+				// The same file is already imported, but the derivative may be
+				// missing or unusable if an earlier run was interrupted. Repairing
+				// it here is what makes add safe to retry.
+				alreadyImported = true
 			}
 
-			// Build the derivative. The status advances to audio_ready only after
-			// a validated one exists, so an interrupted add leaves a conversation
+			// Guarantee a validated derivative. The status advances to audio_ready
+			// only once one exists, so an interrupted add leaves a conversation
 			// that truthfully says it has no usable audio.
 			converter := audio.NewConverter()
 			converter.Progress = func(stage audio.Stage) {
 				fmt.Fprintf(streams.Err, "  %s...\n", stage)
 			}
 
-			optimized, err := converter.Optimize(cmd.Context(), workspace)
+			optimized, rebuilt, err := converter.EnsureOptimized(cmd.Context(), workspace)
 			if err != nil {
 				return err
 			}
 
-			recording.OptimizedProperties = &optimized
-			if err := audio.SaveRecording(workspace, recording); err != nil {
-				return err
+			if rebuilt || recording.OptimizedProperties == nil {
+				recording.OptimizedProperties = &optimized
+				if err := audio.SaveRecording(workspace, recording); err != nil {
+					return err
+				}
 			}
 
 			current.ActiveRecordingID = recording.ID
@@ -88,7 +95,19 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 				return err
 			}
 
-			fmt.Fprintf(streams.Out, "Imported %s\n", recording.OriginalFilename)
+			if alreadyImported && !rebuilt {
+				fmt.Fprintf(streams.Out, "Already imported: %s (%s)\n",
+					recording.OriginalFilename, recording.ID)
+				fmt.Fprintf(streams.Out, "Nothing to do. Pass --replace to import a different file.\n")
+
+				return nil
+			}
+
+			if alreadyImported {
+				fmt.Fprintf(streams.Out, "Repaired %s\n", recording.OriginalFilename)
+			} else {
+				fmt.Fprintf(streams.Out, "Imported %s\n", recording.OriginalFilename)
+			}
 			fmt.Fprintf(streams.Out, "  recording  %s\n", recording.ID)
 			fmt.Fprintf(streams.Out, "  bytes      %d\n", recording.SizeBytes)
 			fmt.Fprintf(streams.Out, "  sha256     %s\n", recording.SHA256)

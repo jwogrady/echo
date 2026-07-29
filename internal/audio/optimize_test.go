@@ -346,3 +346,130 @@ func TestRealFFmpegHandlesAwkwardPaths(t *testing.T) {
 		t.Errorf("no derivative produced: %v", err)
 	}
 }
+
+// EnsureOptimized is what makes `add` safe to retry.
+func TestEnsureOptimizedSkipsAValidDerivative(t *testing.T) {
+	workspace := workspaceWithSource(t)
+	if err := os.WriteFile(OptimizedPath(workspace), wavBytes(silence()), 0o644); err != nil {
+		t.Fatalf("writing the derivative: %v", err)
+	}
+
+	runner := &scriptedRunner{onRun: func(string) error {
+		t.Error("ffmpeg was invoked despite a valid derivative")
+		return nil
+	}}
+	converter := &Converter{
+		Runner:  runner,
+		Inspect: func(context.Context, string) (Properties, error) { return targetProperties(), nil },
+	}
+
+	_, rebuilt, err := converter.EnsureOptimized(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("EnsureOptimized() error = %v", err)
+	}
+	if rebuilt {
+		t.Error("rebuilt = true, want false for an already-valid derivative")
+	}
+}
+
+// A run interrupted after the copy leaves no derivative; retrying must heal it.
+func TestEnsureOptimizedRebuildsWhatIsMissingOrUnusable(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, workspace conversation.Workspace)
+		valid bool
+	}{
+		{
+			name:  "no derivative at all",
+			setup: func(*testing.T, conversation.Workspace) {},
+			valid: true,
+		},
+		{
+			name: "zero-length debris",
+			setup: func(t *testing.T, workspace conversation.Workspace) {
+				if err := os.WriteFile(OptimizedPath(workspace), nil, 0o644); err != nil {
+					t.Fatalf("writing debris: %v", err)
+				}
+			},
+			valid: true,
+		},
+		{
+			name: "unprobeable file",
+			setup: func(t *testing.T, workspace conversation.Workspace) {
+				if err := os.WriteFile(OptimizedPath(workspace), []byte("RIFFtruncated"), 0o644); err != nil {
+					t.Fatalf("writing debris: %v", err)
+				}
+			},
+			valid: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			workspace := workspaceWithSource(t)
+			test.setup(t, workspace)
+
+			var invoked bool
+			// The existing file is unusable; only the freshly written one probes clean.
+			fresh := false
+			converter := &Converter{
+				Runner: &scriptedRunner{onRun: func(destination string) error {
+					invoked = true
+					fresh = true
+					return os.WriteFile(destination, wavBytes(silence()), 0o644)
+				}},
+				Inspect: func(_ context.Context, path string) (Properties, error) {
+					if !fresh && !test.valid {
+						return Properties{}, ErrProbeFailed
+					}
+					return targetProperties(), nil
+				},
+			}
+
+			_, rebuilt, err := converter.EnsureOptimized(context.Background(), workspace)
+			if err != nil {
+				t.Fatalf("EnsureOptimized() error = %v", err)
+			}
+			if !rebuilt || !invoked {
+				t.Error("the derivative should have been rebuilt")
+			}
+			if _, err := os.Stat(OptimizedPath(workspace)); err != nil {
+				t.Errorf("no derivative in place afterward: %v", err)
+			}
+		})
+	}
+}
+
+// A wrong-format derivative must be rebuilt rather than accepted.
+func TestEnsureOptimizedRebuildsAWrongFormatDerivative(t *testing.T) {
+	workspace := workspaceWithSource(t)
+	if err := os.WriteFile(OptimizedPath(workspace), wavBytes(silence()), 0o644); err != nil {
+		t.Fatalf("writing the derivative: %v", err)
+	}
+
+	rebuiltOnce := false
+	converter := &Converter{
+		Runner: &scriptedRunner{onRun: func(destination string) error {
+			rebuiltOnce = true
+			return os.WriteFile(destination, wavBytes(silence()), 0o644)
+		}},
+		Inspect: func(context.Context, string) (Properties, error) {
+			if !rebuiltOnce {
+				stereo := targetProperties()
+				stereo.Channels = 2
+
+				return stereo, nil
+			}
+
+			return targetProperties(), nil
+		},
+	}
+
+	_, rebuilt, err := converter.EnsureOptimized(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("EnsureOptimized() error = %v", err)
+	}
+	if !rebuilt {
+		t.Error("a stereo derivative should have been rebuilt")
+	}
+}
