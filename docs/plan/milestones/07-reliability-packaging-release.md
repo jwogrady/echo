@@ -54,7 +54,7 @@ Deliver:
 - Python tests and linting pass.
 - CI does not require a GPU.
 - Manual GPU smoke test is documented and performed where hardware is available.
-- `echo doctor` catches the most common installation problems.
+- `ekko doctor` catches the most common installation problems.
 - Version output identifies CLI version, worker version, and contract compatibility.
 - Changelog and release notes describe only shipped behavior.
 
@@ -137,7 +137,7 @@ For every issue:
 
 - [ ] A versioned Windows executable is produced.
 - [ ] Artifact checksums are generated.
-- [ ] Version metadata is embedded and shown by `echo version`.
+- [ ] Version metadata is embedded and shown by `ekko version`.
 - [ ] Build steps are documented and repeatable.
 
 **Required artifacts**

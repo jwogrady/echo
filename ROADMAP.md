@@ -13,8 +13,8 @@ Python owns inference, connected by a versioned subprocess contract
 ([ADR-0001](docs/plan/decisions/ADR-0001-go-cli-python-worker.md)).
 
 Done when a Windows user with FFmpeg, uv, Python, CUDA, cuDNN, and an NVIDIA
-GPU can run `echo doctor`, `echo new`, `echo add`, `echo transcribe`,
-`echo show`, and `echo export markdown`, and receive an unchanged source WAV, a
+GPU can run `ekko doctor`, `ekko new`, `ekko add`, `ekko transcribe`,
+`ekko show`, and `ekko export markdown`, and receive an unchanged source WAV, a
 normalized mono 16 kHz PCM derivative, durable job state, timestamped
 transcript JSON, and a readable Markdown export.
 
@@ -31,9 +31,9 @@ lands when the seventh is green
    SHA-256, metadata inspection, and the FFmpeg derivative.
 4. **Python Whisper worker** — independently testable `faster-whisper`
    transcription writing the canonical transcript schema.
-5. **Go/worker integration** — `echo transcribe`, subprocess management, job
+5. **Go/worker integration** — `ekko transcribe`, subprocess management, job
    state, progress, cancellation, and safe retries.
-6. **Transcript review and export** — `echo show` and deterministic Markdown
+6. **Transcript review and export** — `ekko show` and deterministic Markdown
    export from canonical JSON.
 7. **Reliability, packaging, and release** — end-to-end fixture tests, Windows
    build artifacts, and installation docs.

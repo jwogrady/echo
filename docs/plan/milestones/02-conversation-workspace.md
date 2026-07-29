@@ -11,10 +11,10 @@ Implement durable local conversation workspaces managed entirely by the Go CLI.
 Implement:
 
 ```text
-echo new <title>
-echo list
-echo use <conversation-id-or-prefix>
-echo status
+ekko new <title>
+ekko list
+ekko use <conversation-id-or-prefix>
+ekko status
 ```
 
 Support a global `--conversation` option where appropriate so automation does not depend on active state.
@@ -70,10 +70,10 @@ Include:
 ## Definition of Done
 
 ```powershell
-echo new "Product Strategy"
-echo list
-echo use <id-prefix>
-echo status
+ekko new "Product Strategy"
+ekko list
+ekko use <id-prefix>
+ekko status
 ```
 
 creates and selects a valid portable conversation workspace and passes all Go tests.
@@ -95,7 +95,7 @@ For every issue:
 ## Preconditions
 
 - Milestone 1 is merged.
-- `echo version` and `echo doctor` run.
+- `ekko version` and `ekko doctor` run.
 - The working tree is clean.
 
 ## Spark Issue Contracts
@@ -119,8 +119,8 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo new <title>` creates a unique workspace.
-- [ ] `echo list` is deterministic and displays required fields.
+- [ ] `ekko new <title>` creates a unique workspace.
+- [ ] `ekko list` is deterministic and displays required fields.
 - [ ] Duplicate titles do not collide.
 - [ ] Existing conversations are never silently overwritten.
 
@@ -134,7 +134,7 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo use <id-or-prefix>` persists selection outside conversation folders.
+- [ ] `ekko use <id-or-prefix>` persists selection outside conversation folders.
 - [ ] Unique prefixes work and ambiguous prefixes fail clearly.
 - [ ] A global `--conversation` override works where required.
 - [ ] Selection behavior is tested.
@@ -149,7 +149,7 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo status` reports the active conversation and true current state.
+- [ ] `ekko status` reports the active conversation and true current state.
 - [ ] Malformed metadata is reported without mutation or deletion.
 - [ ] Atomic writes are used for metadata updates.
 - [ ] Recovery guidance is actionable.
@@ -167,10 +167,10 @@ Run and record the relevant results:
 ```text
 go test ./...
 go vet ./...
-echo new "Product Strategy"
-echo list
-echo use <id-prefix>
-echo status
+ekko new "Product Strategy"
+ekko list
+ekko use <id-prefix>
+ekko status
 ```
 
 ## Ship Gate
