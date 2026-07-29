@@ -1,0 +1,44 @@
+# Go build output
+/ekko
+/ekko.exe
+/dist/
+*.test
+*.out
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# User data. Echo's branch discipline forbids committing recordings,
+# transcripts, or user conversations: they are private by nature.
+*.wav
+*.mp3
+*.m4a
+/conversations/
+
+# Model weights — large binaries that do not belong in git.
+*.pt
+*.bin
+*.onnx
+models/
+
+# Small WAV fixtures the test suites need are version-controlled on purpose, so
+# re-include them after the blanket audio rule above. These negations name file
+# types, never whole directories: `!/worker/tests/**` would also re-include
+# __pycache__ and defeat the rules above it.
+!/testdata/**/*.wav
+!/worker/tests/**/*.wav
+
+# Local tooling state
+.spark/state.json
+.issue-manifest.state*
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,8 @@
+{"version":1,"type":"started","model":"large-v3","device":"cuda","compute_type":"float16","language_mode":"auto"}
+{"version":1,"type":"progress","stage":"loading_model"}
+{"version":1,"type":"progress","stage":"detecting_language"}
+{"version":1,"type":"progress","stage":"transcribing"}
+{"version":1,"type":"segment","sequence":1,"start":0.0,"end":4.2}
+{"version":1,"type":"segment","sequence":2,"start":4.2,"end":9.87}
+{"version":1,"type":"segment","sequence":3,"start":9.87,"end":15.5}
+{"version":1,"type":"completed","segments":3,"duration_seconds":15.5}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "transcript_id": "trs_01HQ8ZK4T7WYVX0PJ3M2N5R6QB",
+  "conversation_id": "cnv_01HQ8ZJ9M3XBQK7T2Y4V6P8R0D",
+  "recording_id": "rec_01HQ8ZJZ5N2WQT8Y3B7X1M4K6P",
+  "worker": {
+    "name": "echo-worker",
+    "version": "0.0.0",
+    "contract_version": 1
+  },
+  "model": {
+    "name": "large-v3",
+    "device": "cuda",
+    "compute_type": "float16"
+  },
+  "language": {
+    "mode": "auto",
+    "detected": "en",
+    "probability": 0.9873
+  },
+  "duration_seconds": 15.5,
+  "segments": [
+    {
+      "sequence": 1,
+      "start": 0.0,
+      "end": 4.2,
+      "text": "The thing I keep coming back to is that the whole product is a note-taking tool."
+    },
+    {
+      "sequence": 2,
+      "start": 4.2,
+      "end": 9.87,
+      "text": "If I can talk for ten minutes and get something I can actually edit, that is the win."
+    },
+    {
+      "sequence": 3,
+      "start": 9.87,
+      "end": 15.5,
+      "text": "Everything else — the sharing, the search, the tagging — comes after that.",
+      "confidence": -0.2314
+    }
+  ]
+}

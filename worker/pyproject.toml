@@ -1,0 +1,35 @@
+[project]
+name = "echo-worker"
+version = "0.0.0"
+description = "GPU transcription worker for Echo. Inference only — no conversation, export, or configuration logic."
+requires-python = ">=3.12"
+# Intentionally empty. faster-whisper, CUDA, and cuDNN arrive with the
+# inference adapter; this scaffold must install and run without them.
+dependencies = []
+
+[project.scripts]
+echo-worker = "echo_worker.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/echo_worker"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
