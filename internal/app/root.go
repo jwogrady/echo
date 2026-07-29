@@ -16,7 +16,6 @@ var pending = []struct {
 	args  cobra.PositionalArgs
 	short string
 }{
-	{"use <conversation-id>", cobra.ExactArgs(1), "Select the active conversation"},
 	{"status", cobra.NoArgs, "Show the active conversation's state"},
 	{"add <wav-path>", cobra.ExactArgs(1), "Import a WAV recording"},
 	{"transcribe", cobra.NoArgs, "Transcribe the active recording"},
@@ -53,6 +52,7 @@ func NewRootCommand(streams Streams) *cobra.Command {
 
 func newRootCommand(streams Streams) (*cobra.Command, *dispatch) {
 	dispatched := &dispatch{}
+	selected := &conversationFlag{}
 
 	root := &cobra.Command{
 		Use:   buildinfo.Name,
@@ -83,10 +83,16 @@ func newRootCommand(streams Streams) (*cobra.Command, *dispatch) {
 		return usageErrorf("%s", err)
 	})
 
+	// Available to every command so automation never depends on which
+	// conversation a human happened to select.
+	root.PersistentFlags().StringVar(&selected.value, "conversation", "",
+		"act on this conversation id or unique prefix instead of the selected one")
+
 	root.AddCommand(newVersionCommand(streams, dispatched))
 	root.AddCommand(newDoctorCommand(streams, dispatched))
 	root.AddCommand(newNewCommand(streams, dispatched))
 	root.AddCommand(newListCommand(streams, dispatched))
+	root.AddCommand(newUseCommand(streams, dispatched))
 
 	for _, cmd := range pending {
 		root.AddCommand(newPendingCommand(cmd.use, cmd.short, cmd.args, dispatched))
