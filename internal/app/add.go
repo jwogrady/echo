@@ -63,11 +63,26 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 				return err
 			}
 
-			// The recording is committed, so record it on the conversation. The
-			// status advances only this far: audio_ready waits for a validated
-			// derivative, which this build does not produce yet.
+			// Build the derivative. The status advances to audio_ready only after
+			// a validated one exists, so an interrupted add leaves a conversation
+			// that truthfully says it has no usable audio.
+			converter := audio.NewConverter()
+			converter.Progress = func(stage audio.Stage) {
+				fmt.Fprintf(streams.Err, "  %s...\n", stage)
+			}
+
+			optimized, err := converter.Optimize(cmd.Context(), workspace)
+			if err != nil {
+				return err
+			}
+
+			recording.OptimizedProperties = &optimized
+			if err := audio.SaveRecording(workspace, recording); err != nil {
+				return err
+			}
+
 			current.ActiveRecordingID = recording.ID
-			current.Status = conversation.StatusRecordingAdded
+			current.Status = conversation.StatusAudioReady
 			current.UpdatedAt = recording.ImportedAt
 			if err := conversation.Save(workspace, current); err != nil {
 				return err
@@ -80,9 +95,12 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 			fmt.Fprintf(streams.Out, "  stored     %s\n", audio.SourcePath(workspace))
 
 			if properties := recording.SourceProperties; properties != nil {
-				fmt.Fprintf(streams.Out, "  audio      %s, %d Hz, %d channel(s), %.2fs\n",
+				fmt.Fprintf(streams.Out, "  source     %s, %d Hz, %d channel(s), %.2fs\n",
 					properties.Codec, properties.SampleRate, properties.Channels, properties.DurationSeconds)
 			}
+			fmt.Fprintf(streams.Out, "  optimized  %s, %d Hz, %d channel(s), %.2fs\n",
+				optimized.Codec, optimized.SampleRate, optimized.Channels, optimized.DurationSeconds)
+			fmt.Fprintf(streams.Out, "             %s\n", audio.OptimizedPath(workspace))
 
 			return nil
 		}),
