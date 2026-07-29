@@ -16,7 +16,6 @@ var pending = []struct {
 	args  cobra.PositionalArgs
 	short string
 }{
-	{"status", cobra.NoArgs, "Show the active conversation's state"},
 	{"add <wav-path>", cobra.ExactArgs(1), "Import a WAV recording"},
 	{"transcribe", cobra.NoArgs, "Transcribe the active recording"},
 	{"show", cobra.NoArgs, "Display the transcript"},
@@ -93,6 +92,7 @@ func newRootCommand(streams Streams) (*cobra.Command, *dispatch) {
 	root.AddCommand(newNewCommand(streams, dispatched))
 	root.AddCommand(newListCommand(streams, dispatched))
 	root.AddCommand(newUseCommand(streams, dispatched))
+	root.AddCommand(newStatusCommand(streams, selected, dispatched))
 
 	for _, cmd := range pending {
 		root.AddCommand(newPendingCommand(cmd.use, cmd.short, cmd.args, dispatched))

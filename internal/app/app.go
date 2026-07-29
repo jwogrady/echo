@@ -61,6 +61,13 @@ func Run(args []string, streams Streams) ExitCode {
 
 // report writes a single user-facing description of err.
 func report(err error, w io.Writer) {
+	// Some failures explain themselves in full before returning; printing the
+	// cause again would just repeat it.
+	var reported *reportedError
+	if errors.As(err, &reported) {
+		return
+	}
+
 	// A not-implemented error already names its own command path, so it needs
 	// no program-name prefix.
 	var notImplemented *notImplementedError

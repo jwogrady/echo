@@ -2,6 +2,8 @@ package app
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -581,5 +583,245 @@ func TestTargetWithoutASelectionIsActionable(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--conversation") {
 		t.Errorf("error = %q, want it to mention the flag", err)
+	}
+}
+
+// damageMetadata overwrites a conversation's metadata and returns what it wrote,
+// so a test can prove Echo left it alone.
+func damageMetadata(t *testing.T, root, id, contents string) string {
+	t.Helper()
+
+	path := filepath.Join(root, "conversations", id, "conversation.json")
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("writing the damaged fixture: %v", err)
+	}
+
+	return path
+}
+
+func TestStatusReportsTheActiveConversation(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Product Strategy")
+
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	code, out, errOut := run(t, "status")
+	if code != ExitOK {
+		t.Fatalf("exit = %d (stderr: %q)", code, errOut)
+	}
+
+	for _, want := range []string{id, "Product Strategy", "created", "path"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// A blank field would read as "ready"; absence must be stated.
+func TestStatusStatesWhatDoesNotExistYet(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Alpha")
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	_, out, _ := run(t, "status")
+
+	for _, want := range []string{"none imported yet", "none yet"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// status must not advertise a command that would fail.
+func TestStatusMarksUnbuiltNextStepsAsUnavailable(t *testing.T) {
+	withTempDataDir(t)
+	id := createConversation(t, "Alpha")
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	_, out, _ := run(t, "status")
+
+	if !strings.Contains(out, "not available in this build") {
+		t.Errorf("output should mark the next step unavailable:\n%s", out)
+	}
+}
+
+func TestStatusHonorsTheConversationFlag(t *testing.T) {
+	withTempDataDir(t)
+	selected := createConversation(t, "Selected")
+	other := createConversation(t, "Other")
+
+	if code, _, _ := run(t, "use", selected); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	code, out, errOut := run(t, "status", "--conversation", other)
+	if code != ExitOK {
+		t.Fatalf("exit = %d (stderr: %q)", code, errOut)
+	}
+	if !strings.Contains(out, other) {
+		t.Errorf("output should describe the flagged conversation:\n%s", out)
+	}
+	if strings.Contains(out, selected) {
+		t.Errorf("output describes the selected conversation instead:\n%s", out)
+	}
+}
+
+func TestStatusWithoutASelectionIsActionable(t *testing.T) {
+	withTempDataDir(t)
+
+	code, _, errOut := run(t, "status")
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(errOut, buildinfo.Name+" use") {
+		t.Errorf("stderr = %q, want it to suggest use", errOut)
+	}
+}
+
+// Damage is reported in full, the file is untouched, and the exit code is nonzero.
+func TestStatusReportsDamageWithoutTouchingTheFile(t *testing.T) {
+	tests := []struct {
+		name         string
+		contents     string
+		wantGuidance string
+	}{
+		{
+			name:         "truncated json",
+			contents:     `{"schema_version":1,"id":"trunc`,
+			wantGuidance: "will not repair",
+		},
+		{
+			name:         "newer schema",
+			contents:     `{"schema_version":99,"id":"cnv_AAAAAAAAAAAAAAAAAAAAAAAAAA","title":"x","status":"created","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}`,
+			wantGuidance: "newer version of Echo",
+		},
+		{
+			name:         "impossible status",
+			contents:     `{"schema_version":1,"id":"cnv_AAAAAAAAAAAAAAAAAAAAAAAAAA","title":"x","status":"halfway","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}`,
+			wantGuidance: "will not repair",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := withTempDataDir(t)
+			id := createConversation(t, "Doomed")
+			if code, _, _ := run(t, "use", id); code != ExitOK {
+				t.Fatal("use failed")
+			}
+
+			path := damageMetadata(t, root, id, test.contents)
+
+			code, out, errOut := run(t, "status")
+
+			if code != ExitError {
+				t.Errorf("exit = %d, want %d", code, ExitError)
+			}
+			if !strings.Contains(out, "unreadable") {
+				t.Errorf("output should say unreadable:\n%s", out)
+			}
+			if !strings.Contains(out, path) {
+				t.Errorf("output should name the metadata path:\n%s", out)
+			}
+			if !strings.Contains(out, test.wantGuidance) {
+				t.Errorf("output missing guidance %q:\n%s", test.wantGuidance, out)
+			}
+			// The cause is explained once, in the report, not twice.
+			if errOut != "" {
+				t.Errorf("stderr should be empty when the report already explained it, got %q", errOut)
+			}
+
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("reading back: %v", err)
+			}
+			if string(after) != test.contents {
+				t.Errorf("status modified the damaged file:\n got %q\nwant %q", after, test.contents)
+			}
+		})
+	}
+}
+
+// Audio is the part a user cannot regenerate, so say it survived.
+func TestStatusReportsSurvivingWorkspaceContents(t *testing.T) {
+	root := withTempDataDir(t)
+	id := createConversation(t, "Doomed")
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	audio := filepath.Join(root, "conversations", id, "audio", "source.wav")
+	if err := os.WriteFile(audio, []byte("not really audio"), 0o644); err != nil {
+		t.Fatalf("writing the fixture: %v", err)
+	}
+	damageMetadata(t, root, id, "{broken")
+
+	_, out, _ := run(t, "status")
+
+	if !strings.Contains(out, "Still present") || !strings.Contains(out, "audio/") {
+		t.Errorf("output should report the surviving audio:\n%s", out)
+	}
+}
+
+// A missing metadata file needs different advice than a corrupt one.
+func TestStatusDistinguishesMissingMetadata(t *testing.T) {
+	root := withTempDataDir(t)
+	id := createConversation(t, "Doomed")
+	if code, _, _ := run(t, "use", id); code != ExitOK {
+		t.Fatal("use failed")
+	}
+
+	if err := os.Remove(filepath.Join(root, "conversations", id, "conversation.json")); err != nil {
+		t.Fatalf("removing the metadata: %v", err)
+	}
+
+	code, out, _ := run(t, "status")
+	if code != ExitError {
+		t.Errorf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(out, "no metadata file") {
+		t.Errorf("output should distinguish a missing file:\n%s", out)
+	}
+}
+
+// list must survive damage too, showing the healthy rows.
+func TestListSurvivesADamagedConversation(t *testing.T) {
+	root := withTempDataDir(t)
+	healthy := createConversation(t, "Healthy")
+	damaged := createConversation(t, "Damaged")
+
+	damageMetadata(t, root, damaged, "{broken")
+
+	code, out, errOut := run(t, "list")
+	if code != ExitOK {
+		t.Fatalf("exit = %d (stderr: %q)", code, errOut)
+	}
+	if !strings.Contains(out, healthy) || !strings.Contains(out, "Healthy") {
+		t.Errorf("the healthy conversation is missing:\n%s", out)
+	}
+	if !strings.Contains(out, damaged) || !strings.Contains(out, "(unreadable)") {
+		t.Errorf("the damaged conversation should be flagged, not hidden:\n%s", out)
+	}
+}
+
+func TestStatusIsNoLongerPending(t *testing.T) {
+	for _, name := range pendingCommandNames() {
+		if name == "status" {
+			t.Error("status is still registered as a placeholder")
+		}
+	}
+}
+
+func TestStatusRejectsArguments(t *testing.T) {
+	withTempDataDir(t)
+
+	if code, _, _ := run(t, "status", "surplus"); code != ExitUsage {
+		t.Errorf("exit = %d, want %d", code, ExitUsage)
 	}
 }
