@@ -913,8 +913,8 @@ func TestAddAdvancesTheConversationStatus(t *testing.T) {
 	}
 
 	_, out, _ := run(t, "status")
-	if !strings.Contains(out, "recording_added") {
-		t.Errorf("status should advance to recording_added:\n%s", out)
+	if !strings.Contains(out, "audio_ready") {
+		t.Errorf("status should advance to audio_ready:\n%s", out)
 	}
 	if !strings.Contains(out, "rec_") {
 		t.Errorf("status should name the recording:\n%s", out)
@@ -1009,12 +1009,12 @@ func TestAddHonorsTheConversationFlag(t *testing.T) {
 	}
 
 	_, out, _ := run(t, "status", "--conversation", other)
-	if !strings.Contains(out, "recording_added") {
+	if !strings.Contains(out, "audio_ready") {
 		t.Errorf("the flagged conversation should hold the recording:\n%s", out)
 	}
 
 	_, out, _ = run(t, "status", "--conversation", selected)
-	if strings.Contains(out, "recording_added") {
+	if strings.Contains(out, "audio_ready") {
 		t.Errorf("the selected conversation should be untouched:\n%s", out)
 	}
 }
