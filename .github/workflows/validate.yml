@@ -4,8 +4,9 @@
 # root, Python owns the GPU worker under worker/. Each language gets its own
 # job so a failure names which side broke.
 #
-# No GPU is required and no model is ever downloaded. GPU transcription is
-# verified by the manual smoke test documented for Milestone 7, never here.
+# FFmpeg is installed because Echo genuinely requires it; no GPU is required
+# and no model is ever downloaded. GPU transcription is verified by the manual
+# smoke test documented for Milestone 7, never here.
 name: validate
 
 on:
@@ -32,6 +33,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      # FFmpeg is a product prerequisite, not a test convenience: ekko add
+      # invokes ffprobe. Without it here the import tests cannot run at all, and
+      # the ones that probe real output would silently skip rather than verify.
+      - name: install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffprobe -version | head -1
 
       # A formatting drift is a one-command fix, so say which files and how.
       - name: gofmt
