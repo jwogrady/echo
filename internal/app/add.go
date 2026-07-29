@@ -22,7 +22,7 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 			"verified against the original. Re-importing the same file is a no-op.\n" +
 			"Importing a different file over an existing recording requires --replace.",
 		Args: cobra.ExactArgs(1),
-		RunE: dispatched.mark(func(_ *cobra.Command, args []string) error {
+		RunE: dispatched.mark(func(cmd *cobra.Command, args []string) error {
 			repo, err := repository()
 			if err != nil {
 				return err
@@ -50,7 +50,7 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 				fmt.Fprintf(streams.Err, "  %s...\n", stage)
 			}
 
-			recording, err := importer.Import(workspace, id, source, replace)
+			recording, err := importer.Import(cmd.Context(), workspace, id, source, replace)
 			if err != nil {
 				if errors.Is(err, audio.ErrAlreadyImported) {
 					fmt.Fprintf(streams.Out, "Already imported: %s (%s)\n",
@@ -78,6 +78,11 @@ func newAddCommand(streams Streams, selected *conversationFlag, dispatched *disp
 			fmt.Fprintf(streams.Out, "  bytes      %d\n", recording.SizeBytes)
 			fmt.Fprintf(streams.Out, "  sha256     %s\n", recording.SHA256)
 			fmt.Fprintf(streams.Out, "  stored     %s\n", audio.SourcePath(workspace))
+
+			if properties := recording.SourceProperties; properties != nil {
+				fmt.Fprintf(streams.Out, "  audio      %s, %d Hz, %d channel(s), %.2fs\n",
+					properties.Codec, properties.SampleRate, properties.Channels, properties.DurationSeconds)
+			}
 
 			return nil
 		}),

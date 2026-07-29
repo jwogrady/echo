@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -31,10 +32,11 @@ var (
 type Stage string
 
 const (
-	StageHashing   Stage = "hashing source"
-	StageCopying   Stage = "copying source"
-	StageVerifying Stage = "verifying copy"
-	StageSaving    Stage = "saving metadata"
+	StageInspecting Stage = "inspecting source"
+	StageHashing    Stage = "hashing source"
+	StageCopying    Stage = "copying source"
+	StageVerifying  Stage = "verifying copy"
+	StageSaving     Stage = "saving metadata"
 )
 
 // StageError wraps a failure with the stage it happened in. "ffmpeg failed" is
@@ -54,15 +56,21 @@ type Importer struct {
 	Now func() time.Time
 	// NewID generates the recording identifier.
 	NewID func() (string, error)
+	// Inspect reports a file's audio properties. Optional: when nil the
+	// recording is stored without properties, which a later inspection fills in.
+	Inspect func(ctx context.Context, path string) (Properties, error)
 	// Progress receives stage announcements. Optional.
 	Progress func(Stage)
 }
 
 // NewImporter returns an Importer using the real clock and id generator.
 func NewImporter() *Importer {
+	prober := NewProber()
+
 	return &Importer{
-		Now:   func() time.Time { return time.Now().UTC() },
-		NewID: NewRecordingID,
+		Now:     func() time.Time { return time.Now().UTC() },
+		NewID:   NewRecordingID,
+		Inspect: prober.Inspect,
 	}
 }
 
@@ -82,10 +90,23 @@ func (i *Importer) announce(stage Stage) {
 // Replacing an existing recording requires replace, so a second `add` cannot
 // silently discard audio the user may not have elsewhere. Re-importing the
 // identical file returns ErrAlreadyImported, which callers may treat as a no-op.
-func (i *Importer) Import(workspace conversation.Workspace, conversationID string, source Source, replace bool) (Recording, error) {
+func (i *Importer) Import(ctx context.Context, workspace conversation.Workspace, conversationID string, source Source, replace bool) (Recording, error) {
 	existing, hasExisting, err := i.existingRecording(workspace)
 	if err != nil {
 		return Recording{}, err
+	}
+
+	// The documented pipeline inspects before hashing, and inspecting the
+	// original rather than the copy means a file Echo cannot read is rejected
+	// before anything is written.
+	var properties *Properties
+	if i.Inspect != nil {
+		i.announce(StageInspecting)
+		inspected, err := i.Inspect(ctx, source.Path)
+		if err != nil {
+			return Recording{}, &StageError{Stage: StageInspecting, Cause: err}
+		}
+		properties = &inspected
 	}
 
 	i.announce(StageHashing)
@@ -144,6 +165,7 @@ func (i *Importer) Import(workspace conversation.Workspace, conversationID strin
 		SHA256:           sourceSum,
 		SizeBytes:        written,
 		ImportedAt:       i.Now(),
+		SourceProperties: properties,
 	}
 
 	i.announce(StageSaving)
