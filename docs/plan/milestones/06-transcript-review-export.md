@@ -11,8 +11,8 @@ Make completed transcripts useful from the terminal. Implement deterministic rev
 Implement:
 
 ```text
-echo show
-echo export markdown
+ekko show
+ekko export markdown
 ```
 
 Useful flags may include:
@@ -80,8 +80,8 @@ Include golden-file tests for:
 ## Definition of Done
 
 ```powershell
-echo show
-echo export markdown
+ekko show
+ekko export markdown
 ```
 
 provides a readable terminal transcript and creates a deterministic Markdown document without changing canonical transcript data.
@@ -127,7 +127,7 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo show` displays required metadata and timestamped text.
+- [ ] `ekko show` displays required metadata and timestamped text.
 - [ ] Redirected output is script-friendly.
 - [ ] Plain output is available when rich formatting is used.
 - [ ] Invalid transcripts fail without mutation.
@@ -142,7 +142,7 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo export markdown` reads canonical JSON only.
+- [ ] `ekko export markdown` reads canonical JSON only.
 - [ ] Identical input produces identical output.
 - [ ] Required recording and model metadata are included.
 - [ ] Golden-file tests pass.
@@ -190,8 +190,8 @@ Run and record the relevant results:
 ```text
 go test ./...
 go vet ./...
-echo show
-echo export markdown
+ekko show
+ekko export markdown
 Compare export against golden fixture
 ```
 

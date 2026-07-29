@@ -11,24 +11,24 @@ Create a production-quality repository foundation for Echo CLI. Implement a real
 Implement:
 
 ```text
-echo version
-echo doctor
+ekko version
+ekko doctor
 ```
 
 Create placeholders that return a clear "not implemented in this milestone" result for:
 
 ```text
-echo new
-echo list
-echo use
-echo status
-echo add
-echo transcribe
-echo show
-echo export
+ekko new
+ekko list
+ekko use
+ekko status
+ekko add
+ekko transcribe
+ekko show
+ekko export
 ```
 
-`echo doctor` must report:
+`ekko doctor` must report:
 
 - Echo version
 - Operating system and architecture
@@ -73,8 +73,8 @@ The following work in PowerShell:
 ```powershell
 go test ./...
 go vet ./...
-go run ./cmd/echo version
-go run ./cmd/echo doctor
+go run ./cmd/ekko version
+go run ./cmd/ekko doctor
 cd worker
 uv sync
 uv run echo-worker version
@@ -109,8 +109,8 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] A Go module and `cmd/echo` entrypoint exist.
-- [ ] `echo version` returns version information and exits zero.
+- [ ] A Go module and `cmd/ekko` entrypoint exist.
+- [ ] `ekko version` returns version information and exits zero.
 - [ ] Unimplemented commands fail with a consistent, user-facing message.
 - [ ] `go test ./...` passes.
 
@@ -139,7 +139,7 @@ For every issue:
 
 **Acceptance criteria**
 
-- [ ] `echo doctor` reports required and optional dependencies separately.
+- [ ] `ekko doctor` reports required and optional dependencies separately.
 - [ ] FFmpeg, ffprobe, uv, Python, NVIDIA tooling, and worker location are checked.
 - [ ] Diagnostics include actionable remediation.
 - [ ] Strict mode returns nonzero when required conditions fail.
@@ -187,8 +187,8 @@ Run and record the relevant results:
 ```text
 go test ./...
 go vet ./...
-go run ./cmd/echo version
-go run ./cmd/echo doctor
+go run ./cmd/ekko version
+go run ./cmd/ekko doctor
 cd worker && uv sync && uv run pytest
 ```
 

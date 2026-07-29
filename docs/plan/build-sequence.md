@@ -51,7 +51,7 @@ Suggested issues:
 
 ## Milestone 5 — Go/Worker Integration
 
-Deliver `echo transcribe`, subprocess management, progress display, job state, result validation, cancellation, and safe retries.
+Deliver `ekko transcribe`, subprocess management, progress display, job state, result validation, cancellation, and safe retries.
 
 Suggested issues:
 
@@ -68,7 +68,7 @@ Deliver terminal review and deterministic Markdown export from canonical JSON.
 Suggested issues:
 
 1. Transcript repository and segment formatting.
-2. `echo show` with timestamps and pagination behavior.
+2. `ekko show` with timestamps and pagination behavior.
 3. Markdown exporter.
 4. Export collision and overwrite policy.
 5. Golden-file tests.

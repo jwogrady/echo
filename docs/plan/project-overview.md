@@ -6,15 +6,17 @@ Echo CLI is a local Windows transcription tool for people who think by talking. 
 
 This repository delivers only the CLI product. A graphical application and hosted SaaS may be built later, but they are explicitly outside this plan.
 
+The product is named Echo; the command is `ekko`. They differ because `echo` is a shell builtin in zsh and bash and an alias for `Write-Output` in PowerShell, so a program installed under that name can never be reached. See `decisions/ADR-0002-command-name.md`.
+
 ## First Complete User Journey
 
 ```powershell
-echo doctor
-echo new "Product Strategy"
-echo add .\recordings\idea.wav
-echo transcribe
-echo show
-echo export markdown
+ekko doctor
+ekko new "Product Strategy"
+ekko add .\recordings\idea.wav
+ekko transcribe
+ekko show
+ekko export markdown
 ```
 
 The workflow must create a durable conversation workspace containing the original WAV, optimized WAV, job metadata, timestamped transcript, and export.
@@ -85,7 +87,7 @@ Human-readable diagnostics belong on stderr. Machine-readable status events belo
 ```text
 echo/
 ├── cmd/
-│   └── echo/
+│   └── ekko/
 │       └── main.go
 ├── internal/
 │   ├── app/
@@ -198,16 +200,16 @@ Use explicit JSON schemas or strongly validated structures on both sides of the 
 ## CLI Commands in Scope
 
 ```text
-echo version
-echo doctor
-echo new <title>
-echo list
-echo use <conversation-id>
-echo status
-echo add <wav-path>
-echo transcribe [flags]
-echo show [flags]
-echo export markdown [flags]
+ekko version
+ekko doctor
+ekko new <title>
+ekko list
+ekko use <conversation-id>
+ekko status
+ekko add <wav-path>
+ekko transcribe [flags]
+ekko show [flags]
+ekko export markdown [flags]
 ```
 
 A global `--conversation` flag may allow commands to avoid relying on active-conversation state.
@@ -250,12 +252,12 @@ Do not add:
 The CLI MVP is complete when a Windows user with FFmpeg, uv, Python, CUDA, cuDNN, and an NVIDIA GPU can:
 
 ```powershell
-echo doctor
-echo new "My Idea"
-echo add .\my-idea.wav
-echo transcribe --model large-v3
-echo show
-echo export markdown
+ekko doctor
+ekko new "My Idea"
+ekko add .\my-idea.wav
+ekko transcribe --model large-v3
+ekko show
+ekko export markdown
 ```
 
 and receive:

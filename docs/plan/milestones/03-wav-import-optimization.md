@@ -11,7 +11,7 @@ Implement a safe WAV ingestion pipeline in Go. Preserve the source exactly, insp
 Implement:
 
 ```text
-echo add <wav-path>
+ekko add <wav-path>
 ```
 
 The command operates on the active conversation or an explicitly selected conversation.
@@ -72,8 +72,8 @@ Test:
 ## Definition of Done
 
 ```powershell
-echo add .\testdata\sample.wav
-echo status
+ekko add .\testdata\sample.wav
+ekko status
 ```
 
 preserves a checksum-verified source, creates a validated optimized WAV, persists metadata, and never changes the source file.
@@ -96,7 +96,7 @@ For every issue:
 
 - Milestone 2 is merged.
 - A conversation can be created and selected.
-- FFmpeg and ffprobe are available or diagnosed by `echo doctor`.
+- FFmpeg and ffprobe are available or diagnosed by `ekko doctor`.
 
 ## Spark Issue Contracts
 
@@ -182,9 +182,9 @@ Run and record the relevant results:
 ```text
 go test ./...
 go vet ./...
-echo new "Audio Test"
-echo add .\fixtures\speech.wav
-echo status
+ekko new "Audio Test"
+ekko add .\fixtures\speech.wav
+ekko status
 ```
 
 ## Ship Gate

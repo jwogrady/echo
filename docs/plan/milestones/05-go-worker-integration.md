@@ -4,14 +4,14 @@ Read the project overview, ADR, and completed worker contract before changing co
 
 ## Objective
 
-Implement `echo transcribe` in Go using the Python worker subprocess contract. Add durable job state, observable progress, compatibility checks, cancellation, and safe recovery.
+Implement `ekko transcribe` in Go using the Python worker subprocess contract. Add durable job state, observable progress, compatibility checks, cancellation, and safe recovery.
 
 ## Command
 
 Implement:
 
 ```text
-echo transcribe [--model <name>] [--language <code|auto>] [--device cuda] [--compute-type <type>]
+ekko transcribe [--model <name>] [--language <code|auto>] [--device cuda] [--compute-type <type>]
 ```
 
 Operate on the active or explicitly selected conversation.
@@ -77,8 +77,8 @@ GPU is not required for Go integration tests.
 ## Definition of Done
 
 ```powershell
-echo transcribe --model large-v3
-echo status
+ekko transcribe --model large-v3
+ekko status
 ```
 
 runs the worker, shows progress, writes durable job state, validates the transcript, and leaves the conversation in a correct state after success, failure, or interruption.
@@ -187,8 +187,8 @@ Run and record the relevant results:
 ```text
 go test ./...
 go vet ./...
-echo transcribe --model large-v3
-echo status
+ekko transcribe --model large-v3
+ekko status
 Run fake-worker success, failure, malformed-event, and cancellation tests
 ```
 
