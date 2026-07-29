@@ -1026,3 +1026,99 @@ func TestAddIsNoLongerPending(t *testing.T) {
 		}
 	}
 }
+
+// Deleting the derivative simulates a run interrupted after the copy. Retrying
+// must heal the conversation rather than reporting nothing to do.
+func TestAddRepairsAMissingDerivative(t *testing.T) {
+	root := withTempDataDir(t)
+	id := selectedConversation(t, "Repair")
+	fixture := wavFixture(t, "recording.wav", 8000)
+
+	if code, _, errOut := run(t, "add", fixture); code != ExitOK {
+		t.Fatalf("add failed: %s", errOut)
+	}
+
+	optimized := filepath.Join(root, "conversations", id, "audio", "optimized.wav")
+	if err := os.Remove(optimized); err != nil {
+		t.Fatalf("removing the derivative: %v", err)
+	}
+
+	code, out, errOut := run(t, "add", fixture)
+	if code != ExitOK {
+		t.Fatalf("retry failed: %s", errOut)
+	}
+	if !strings.Contains(out, "Repaired") {
+		t.Errorf("output should report a repair, not a no-op:\n%s", out)
+	}
+	if _, err := os.Stat(optimized); err != nil {
+		t.Errorf("the derivative was not rebuilt: %v", err)
+	}
+}
+
+// A truncated derivative must be rebuilt rather than trusted.
+func TestAddRebuildsATruncatedDerivative(t *testing.T) {
+	root := withTempDataDir(t)
+	id := selectedConversation(t, "Repair")
+	fixture := wavFixture(t, "recording.wav", 8000)
+
+	if code, _, errOut := run(t, "add", fixture); code != ExitOK {
+		t.Fatalf("add failed: %s", errOut)
+	}
+
+	optimized := filepath.Join(root, "conversations", id, "audio", "optimized.wav")
+	if err := os.WriteFile(optimized, []byte("RIFFtruncated"), 0o644); err != nil {
+		t.Fatalf("truncating the derivative: %v", err)
+	}
+
+	if code, out, errOut := run(t, "add", fixture); code != ExitOK {
+		t.Fatalf("retry failed: %s (%s)", errOut, out)
+	}
+
+	info, err := os.Stat(optimized)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Size() <= int64(len("RIFFtruncated")) {
+		t.Error("the truncated derivative was not rebuilt")
+	}
+}
+
+// A genuinely complete conversation is left alone.
+func TestAddIsANoOpWhenEverythingIsAlreadyRight(t *testing.T) {
+	withTempDataDir(t)
+	selectedConversation(t, "Idempotent")
+	fixture := wavFixture(t, "recording.wav", 8000)
+
+	if code, _, _ := run(t, "add", fixture); code != ExitOK {
+		t.Fatal("add failed")
+	}
+
+	code, out, _ := run(t, "add", fixture)
+	if code != ExitOK {
+		t.Errorf("exit = %d, want %d", code, ExitOK)
+	}
+	if !strings.Contains(out, "Nothing to do") {
+		t.Errorf("output should be a no-op:\n%s", out)
+	}
+}
+
+// No debris survives any add.
+func TestAddLeavesNoTemporaryFiles(t *testing.T) {
+	root := withTempDataDir(t)
+	id := selectedConversation(t, "Clean")
+	fixture := wavFixture(t, "recording.wav", 8000)
+
+	if code, _, errOut := run(t, "add", fixture); code != ExitOK {
+		t.Fatalf("add failed: %s", errOut)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, "conversations", id, "audio"))
+	if err != nil {
+		t.Fatalf("reading the audio directory: %v", err)
+	}
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), ".tmp-") {
+			t.Errorf("temporary file survived: %s", entry.Name())
+		}
+	}
+}
