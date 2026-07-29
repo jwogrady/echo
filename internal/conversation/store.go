@@ -63,11 +63,16 @@ func Save(workspace Workspace, c Conversation) error {
 	}
 	encoded = append(encoded, '\n')
 
-	return writeFileAtomic(workspace.MetadataPath(), encoded)
+	return WriteFileAtomic(workspace.MetadataPath(), encoded)
 }
 
-// writeFileAtomic replaces path's contents in a single filesystem operation.
-func writeFileAtomic(path string, contents []byte) error {
+// WriteFileAtomic replaces path's contents in a single filesystem operation.
+//
+// Exported so every part of Echo that persists state uses this one discipline
+// rather than reimplementing it: the temporary file is created beside the target
+// (a cross-volume rename is not atomic) and fsynced before the rename (without
+// which the rename can be durable while the contents are not).
+func WriteFileAtomic(path string, contents []byte) error {
 	dir := filepath.Dir(path)
 
 	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")

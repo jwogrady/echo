@@ -209,7 +209,7 @@ func checkRIFFWAVE(path string) error {
 		return &Error{
 			Code: CodeNotWAV,
 			Path: path,
-			Message: fmt.Sprintf("is not a WAV file; its contents begin with %q, not a RIFF/WAVE header. Echo v0.1 accepts WAV only",
+			Message: fmt.Sprintf("is not a WAV file; its contents begin with %s, not a RIFF/WAVE header. Echo v0.1 accepts WAV only",
 				printable(header[0:4])),
 		}
 	}

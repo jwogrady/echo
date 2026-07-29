@@ -102,7 +102,7 @@ func (r *Repository) SetActive(id string) error {
 		return fmt.Errorf("creating %s: %w", r.paths.Root, err)
 	}
 
-	return writeFileAtomic(r.selectionPath(), encoded)
+	return WriteFileAtomic(r.selectionPath(), encoded)
 }
 
 // Resolve turns a full ID or a unique prefix into a conversation ID.
