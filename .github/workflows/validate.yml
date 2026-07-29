@@ -1,11 +1,11 @@
 # Echo CI: validate every push and PR with each language's own tools.
 #
 # Echo is a two-language repository (ADR-0001): Go owns the CLI at the repo
-# root, Python owns the GPU worker under worker/. Each job is guarded on its
-# manifest existing so the pipeline is green before Milestone 1 lands code and
-# meaningful the moment it does. No GPU is required.
+# root, Python owns the GPU worker under worker/. Each language gets its own
+# job so a failure names which side broke.
 #
-# Milestone 1 / Issue 5 owns hardening these gates.
+# No GPU is required and no model is ever downloaded. GPU transcription is
+# verified by the manual smoke test documented for Milestone 7, never here.
 name: validate
 
 on:
@@ -13,47 +13,54 @@ on:
     branches: [main, master]
   pull_request:
 
+# Superseded runs on the same branch are pointless once a newer commit exists.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   go:
+    name: go (CLI)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Detect Go module
-        id: detect
-        run: |
-          if [ -f go.mod ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No go.mod yet — skipping Go gates." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - uses: actions/setup-go@v5
-        if: steps.detect.outputs.present == 'true'
         with:
           go-version-file: go.mod
           cache: true
 
+      # A formatting drift is a one-command fix, so say which files and how.
       - name: gofmt
-        if: steps.detect.outputs.present == 'true'
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            echo "These files need gofmt:"
+            echo "::error::These files need gofmt. Run: gofmt -w ."
             echo "$unformatted"
             exit 1
           fi
 
       - name: go vet
-        if: steps.detect.outputs.present == 'true'
         run: go vet ./...
 
+      # -race catches data races that a plain run hides; the worker subprocess
+      # integration in Milestone 5 will be concurrent.
       - name: go test
-        if: steps.detect.outputs.present == 'true'
-        run: go test ./...
+        run: go test -race ./...
+
+      # The primary target is Windows, but CI runs on Linux. Compiling for
+      # windows/amd64 keeps a platform-specific break from reaching a release.
+      - name: cross-compile for Windows
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: go build ./...
 
   worker:
+    name: worker (GPU inference)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,34 +68,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Detect worker project
-        id: detect
-        working-directory: .
-        run: |
-          if [ -f worker/pyproject.toml ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No worker/pyproject.toml yet — skipping Python gates." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - uses: astral-sh/setup-uv@v5
-        if: steps.detect.outputs.present == 'true'
+        with:
+          enable-cache: true
+          cache-dependency-glob: worker/uv.lock
 
+      # --locked fails rather than silently resolving different versions, so a
+      # stale uv.lock is caught here instead of on a contributor's machine.
       - name: uv sync
-        if: steps.detect.outputs.present == 'true'
-        run: uv sync
+        run: uv sync --locked
 
       - name: ruff check
-        if: steps.detect.outputs.present == 'true'
         run: uv run ruff check .
 
       - name: ruff format
-        if: steps.detect.outputs.present == 'true'
         run: uv run ruff format --check .
 
-      # Exit code 5 is "no tests collected" — a fresh scaffold is allowed to
-      # have no tests yet; anything else is a real failure.
       - name: pytest
-        if: steps.detect.outputs.present == 'true'
-        run: uv run pytest || [ $? -eq 5 ]
+        run: uv run pytest
