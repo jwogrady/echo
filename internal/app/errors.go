@@ -3,8 +3,10 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jwogrady/echo/internal/buildinfo"
+	"github.com/jwogrady/echo/internal/diagnostics"
 )
 
 // ExitCode is the process status Echo returns to the shell. Windows callers
@@ -67,4 +69,26 @@ func classify(err error) ExitCode {
 	}
 
 	return ExitError
+}
+
+// environmentError means required dependencies are missing or misconfigured. It
+// exists so `doctor --strict` fails as a runtime condition rather than a usage
+// error: the invocation was correct, the machine is not ready.
+type environmentError struct {
+	blocking []diagnostics.Check
+}
+
+func (e *environmentError) Error() string {
+	names := make([]string, 0, len(e.blocking))
+	for _, check := range e.blocking {
+		names = append(names, check.Name)
+	}
+
+	noun := "dependencies are"
+	if len(e.blocking) == 1 {
+		noun = "dependency is"
+	}
+
+	return fmt.Sprintf("%d required %s unavailable: %s",
+		len(e.blocking), noun, strings.Join(names, ", "))
 }

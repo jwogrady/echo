@@ -16,7 +16,6 @@ var pending = []struct {
 	args  cobra.PositionalArgs
 	short string
 }{
-	{"doctor", cobra.NoArgs, "Check the environment Echo needs"},
 	{"new <title>", cobra.ExactArgs(1), "Create a conversation"},
 	{"list", cobra.NoArgs, "List conversations"},
 	{"use <conversation-id>", cobra.ExactArgs(1), "Select the active conversation"},
@@ -87,6 +86,7 @@ func newRootCommand(streams Streams) (*cobra.Command, *dispatch) {
 	})
 
 	root.AddCommand(newVersionCommand(streams, dispatched))
+	root.AddCommand(newDoctorCommand(streams, dispatched))
 
 	for _, cmd := range pending {
 		root.AddCommand(newPendingCommand(cmd.use, cmd.short, cmd.args, dispatched))

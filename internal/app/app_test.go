@@ -263,3 +263,52 @@ func TestRunToleratesMissingWriters(t *testing.T) {
 		t.Errorf("exit code = %d, want %d", got, ExitNotImplemented)
 	}
 }
+
+// doctor is implemented now, so it must not be reachable as a placeholder.
+func TestDoctorIsNoLongerPending(t *testing.T) {
+	for _, name := range pendingCommandNames() {
+		if name == "doctor" {
+			t.Error("doctor is still registered as a placeholder")
+		}
+	}
+}
+
+// A diagnostic tool that exits nonzero reads as though the tool itself broke, so
+// doctor reports and succeeds by default.
+func TestDoctorSucceedsEvenWhenTheMachineIsNotReady(t *testing.T) {
+	code, out, _ := run(t, "doctor")
+
+	if code != ExitOK {
+		t.Errorf("exit code = %d, want %d", code, ExitOK)
+	}
+	for _, section := range []string{"Environment", "Required"} {
+		if !strings.Contains(out, section) {
+			t.Errorf("output missing the %q section:\n%s", section, out)
+		}
+	}
+}
+
+// --strict is the scriptable gate. This asserts the wiring, not a verdict: the
+// exit code depends on what the host machine actually has installed.
+func TestDoctorStrictReportsAVerdict(t *testing.T) {
+	code, out, errOut := run(t, "doctor", "--strict")
+
+	switch code {
+	case ExitOK:
+		if !strings.Contains(out, "Ready") {
+			t.Errorf("strict succeeded but the report does not say Ready:\n%s", out)
+		}
+	case ExitError:
+		if !strings.Contains(errOut, "required") {
+			t.Errorf("strict failed without naming the required dependencies: %q", errOut)
+		}
+	default:
+		t.Errorf("exit code = %d, want %d or %d", code, ExitOK, ExitError)
+	}
+}
+
+func TestDoctorRejectsArguments(t *testing.T) {
+	if code, _, _ := run(t, "doctor", "surplus"); code != ExitUsage {
+		t.Errorf("exit code = %d, want %d", code, ExitUsage)
+	}
+}
